@@ -3,6 +3,7 @@ import numpy as np
 import datetime as dt
 from glob import glob
 import numpy.ma as ma
+import cf_units
 
 def read_atom_nav_file(file_path, flight_number):
     filename = file_path + "ATom{}_flight_tracks.csv".format(flight_number)
@@ -1292,3 +1293,37 @@ def get_ao2018_track():
                                 (2018,9,21,15,0,0,15.62283625,78.23352950)],
                                 dtype=dtypes)
     return ship_coords_array
+
+def find_ship_at_time(target_time):
+    '''
+    Returns a [lon, lat] coordinate for the Oden at the time supplied.
+    target_time should be a dt.datetime object
+    '''
+    ship_coords = get_ao2018_track()
+
+    for i in np.arange(len(ship_coords)-1):
+        ship_time = dt.datetime(ship_coords['year'][i],ship_coords['month'][i],ship_coords['day'][i],
+                                ship_coords['hours'][i],ship_coords['mins'][i],ship_coords['secs'][i])
+        next_ship_time = dt.datetime(ship_coords['year'][i+1], ship_coords['month'][i+1],
+                                     ship_coords['day'][i+1], ship_coords['hours'][i+1],
+                                     ship_coords['mins'][i+1], ship_coords['secs'][i+1])
+        if target_time == ship_time:
+            return i
+        elif target_time == next_ship_time:
+            # NB covers case where target time is equal to the last timestep
+            return i+1
+        elif target_time > ship_time and target_time < next_ship_time:
+            # if the target time is later than this iteration's ship time
+            # and earlier than the subsequent time
+            # i.e. it is between those two timesteps,
+            # so work out which one it's closest to in time
+            time_since_first_step = target_time - ship_time
+            time_until_next_step = next_ship_time - target_time
+            if time_since_first_step < time_until_next_step:
+                return i
+            else:
+                return i+1
+    # if this point is reached then there is no match - probably time supplied outside campaign
+    print("No ship coordinates from this time")
+    return None
+

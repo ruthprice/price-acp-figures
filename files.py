@@ -2,6 +2,7 @@
 # Contains functions for manipulating files
 # =====================================================================
 import numpy as np
+from glob import glob
 # =====================================================================
 def get_csv_contents(filename, split_char=','):
     # Open a file and return its contents in an object array
@@ -22,3 +23,4 @@ def get_csv_contents(filename, split_char=','):
             file_contents[i,j] = lines[i].strip().split(split_char)[j]
 
     return [file_contents, n_rows, n_cols]
+
