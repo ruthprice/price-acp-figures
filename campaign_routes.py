@@ -3,7 +3,7 @@ import numpy as np
 import datetime as dt
 from glob import glob
 import numpy.ma as ma
-import cf_units
+import iris
 
 def read_atom_nav_file(file_path, flight_number):
     filename = file_path + "ATom{}_flight_tracks.csv".format(flight_number)
@@ -1327,3 +1327,61 @@ def find_ship_at_time(target_time):
     print("No ship coordinates from this time")
     return None
 
+def take_drift_timesteps_from_cube(cube):
+    '''
+    Function takes an iris cube and returns only the cube timesteps
+    within AO2018 drift period. Also returns the indices
+    of the cube corresponding to these timesteps
+    '''
+    drift_begin = dt.datetime(year=2018,month=8,day=2)
+    drift_end = dt.datetime(year=2018,month=9,day=19)
+
+    drift_time_inds = []
+    cube_datestamps = cube.coord('time').units.num2date(cube.coord('time').points)
+    for t,datestamp in enumerate(cube_datestamps):
+        if datestamp >= drift_begin and datestamp <= drift_end:
+            drift_time_inds.append(t)
+
+    if drift_time_inds == []:
+        # cube timesteps don't cover drift period
+        print("[take_drift_timesteps_from_cube] no drift times found, returning original cube")
+        return [cube, drift_time_inds]
+    else:
+        return [cube[drift_time_inds], drift_time_inds]
+
+def colocate_with_ao2018_drift(cube, model_resolution):
+    '''
+    Function takes iris cube of whatever time and space
+    and restricts to location of AO2018 ship for each timestep during drift
+    '''
+    ship_coords = get_ao2018_track()
+
+    if take_drift_timesteps_from_cube(cube)[1] == []:
+        # cube doesn't contain data from drift time
+        print("[colocate_with_ao2018_drift] can't colocate, no data from drift period")
+        return []
+
+    cube = take_drift_timesteps_from_cube(cube)[0]
+    timestamps = cube.coord('time').units.num2date(cube.coord('time').points)
+    timestamps = [dt.datetime(T.year,T.month,T.day,T.hour,T.minute,T.second) for T in timestamps]
+    n_drift_time = len(timestamps)
+
+    print("[colocate_with_ao2018] constraining data to ship location")
+    colocated_cubes = iris.cube.CubeList([])
+    for t in np.arange(n_drift_time):
+        T = timestamps[t]
+        ship_coord_ind = find_ship_at_time(T)
+        if ship_coord_ind == None:
+            print("ERROR: can't find ship at {}".format(timestamps[t]))
+            colocated_cubes.append(None)
+        else:
+            ship_lon = ship_coords['lon'][ship_coord_ind]
+            ship_lat = ship_coords['lat'][ship_coord_ind]
+            lon_constraint1 = iris.Constraint(longitude=lambda cell: cell > ship_lon-(0.5*model_resolution[0]))
+            lon_constraint2 = iris.Constraint(longitude=lambda cell: cell < ship_lon+(0.5*model_resolution[0]))
+            lat_constraint1 = iris.Constraint(latitude =lambda cell: cell > ship_lat-(0.5*model_resolution[1]))
+            lat_constraint2 = iris.Constraint(latitude =lambda cell: cell < ship_lat+(0.5*model_resolution[1]))
+            colocated_cube = cube[t].extract(lon_constraint1 & lon_constraint2 & lat_constraint1 & lat_constraint2)
+            colocated_cubes.append(colocated_cube)
+
+    return colocated_cubes

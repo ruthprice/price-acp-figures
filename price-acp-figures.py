@@ -7,12 +7,11 @@ import constants
 from glob import glob
 import iris
 # radius_from_numer_and_mass
-# import constants
-# colocate_with_ao2018_drift
-import campaign_routes as cr
 import numpy as np
+# import constants
 # main body
 import datetime as dt
+import campaign_routes as cr
 from obs_map import plot_obs_map
 # =====================================================================
 def load_3hr_surface_aerosol_number_conc(model_output_path, suite):
@@ -124,60 +123,6 @@ def radius_from_number_and_mass_conc(number_conc, mass_conc):
         mode_radius_cubes[mode] = radius
     return mode_radius_cubes
 
-def take_drift_timesteps_from_cube(cube):
-    # function takes an iris cube and returns only the cube timesteps
-    # within AO2018 drift period. Also returns the indices
-    # of the cube corresponding to these timesteps
-    drift_begin = dt.datetime(year=2018,month=8,day=2)
-    drift_end = dt.datetime(year=2018,month=9,day=19)
-
-    drift_time_inds = []
-    cube_datestamps = cube.coord('time').units.num2date(cube.coord('time').points)
-    for t,datestamp in enumerate(cube_datestamps):
-        if datestamp >= drift_begin and datestamp <= drift_end:
-            drift_time_inds.append(t)
-
-    if drift_time_inds == []:
-        # cube timesteps don't cover drift period
-        print("[take_drift_timesteps_from_cube] no drift times found, returning original cube")
-        return [cube, drift_time_inds]
-    else:
-        return [cube[drift_time_inds], drift_time_inds]
-
-def colocate_with_ao2018_drift(cube, model_resolution):
-    # function takes iris cube of whatever time and space
-    # and restricts to location of AO2018 ship for each timestep during drift
-    ship_coords = cr.get_ao2018_track()
-
-    if take_drift_timesteps_from_cube(cube)[1] == []:
-        # cube doesn't contain data from drift time
-        print("[colocate_with_ao2018_drift] can't colocate, no data from drift period")
-        return []
-
-    cube = take_drift_timesteps_from_cube(cube)[0]
-    timestamps = cube.coord('time').units.num2date(cube.coord('time').points)
-    timestamps = [dt.datetime(T.year,T.month,T.day,T.hour,T.minute,T.second) for T in timestamps]
-    n_drift_time = len(timestamps)
-
-    print("[colocate_with_ao2018] constraining data to ship location")
-    colocated_cubes = iris.cube.CubeList([])
-    for t in np.arange(n_drift_time):
-        T = timestamps[t]
-        ship_coord_ind = cr.find_ship_at_time(T)
-        if ship_coord_ind == None:
-            print("ERROR: can't find ship at {}".format(timestamps[t]))
-            colocated_cubes.append(None)
-        else:
-            ship_lon = ship_coords['lon'][ship_coord_ind]
-            ship_lat = ship_coords['lat'][ship_coord_ind]
-            lon_constraint1 = iris.Constraint(longitude=lambda cell: cell > ship_lon-(0.5*model_resolution[0]))
-            lon_constraint2 = iris.Constraint(longitude=lambda cell: cell < ship_lon+(0.5*model_resolution[0]))
-            lat_constraint1 = iris.Constraint(latitude =lambda cell: cell > ship_lat-(0.5*model_resolution[1]))
-            lat_constraint2 = iris.Constraint(latitude =lambda cell: cell < ship_lat+(0.5*model_resolution[1]))
-            colocated_cube = cube[t].extract(lon_constraint1 & lon_constraint2 & lat_constraint1 & lat_constraint2)
-            colocated_cubes.append(colocated_cube)
-
-    return colocated_cubes
 
 
 start = dt.datetime.now()
@@ -209,20 +154,20 @@ radius = radius_from_number_and_mass_conc(ncon_cubes, mcon_cubes)
 if verbose:
     print(radius)
 
-# if verbose:
-#     print('\nColocating cubes with AO2018..')
+if verbose:
+    print('\nColocating cubes with AO2018..')
 
-# colocated_ncon_cubes = {}
-# for mode in ncon_cubes:
+colocated_ncon_cubes = {}
+for mode in ncon_cubes:
 
-#     if verbose:
-#         print(mode)
+    if verbose:
+        print(mode)
 
-#     cube = ncon_cubes[mode]
-#     colocated_ncon_cubes[mode] = colocate_with_ao2018_drift(cube, constants.model_res)
+    cube = ncon_cubes[mode]
+    colocated_ncon_cubes[mode] = cr.colocate_with_ao2018_drift(cube, constants.model_res)
 
-# if verbose:
-#     print(colocated_ncon_cubes)
+if verbose:
+    print(colocated_ncon_cubes)
 # ---------------------------------------------------------------------
 # PLOTTING
 # ---------------------------------------------------------------------

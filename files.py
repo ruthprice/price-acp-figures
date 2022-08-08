@@ -5,10 +5,11 @@ import numpy as np
 from glob import glob
 # =====================================================================
 def get_csv_contents(filename, split_char=','):
-    # Open a file and return its contents in an object array
-    # Option to use different character for splitting rows
-    # default is a comma
-
+    '''
+    Open a file and return its contents in an object array
+    Option to use different character for splitting rows
+    default is a comma
+    '''
     with open(filename, 'r') as file_reader:
         lines = file_reader.readlines()
 
