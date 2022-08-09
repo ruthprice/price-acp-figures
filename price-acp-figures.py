@@ -285,7 +285,40 @@ def get_ao2018_aerosol_conc(model_output_path, suite):
     dNdlogD = integrate_modes(colocated_number_conc, colocated_radius, bins)
     N_limits = [2.5e-9, 15e-9, 100e-9, 500e-9]  # nm
     N = total_number_from_dN(dNdlogD, bins, N_limits)
-    return N, times
+    return N, N_limits, times
+
+def save_ao2018_aerosol_concs(suite, N, bin_edges, times):
+    '''
+    Save aerosol concentrations from model output
+    colocated with AO2018 as a .csv file.
+    File will look like this:
+
+    Timestep, D[0], D[1],..
+    YYYY-MM-DD HH:MM:SS, N[0,0], N[0,1]..
+    YYYY-MM-DD HH:MM:SS, N[1,0], N[1,1]..
+
+    where D is the lower limit of that bin
+    and N is the data.
+    '''
+    output = 'Timestep,'
+    for Dp in bin_edges:
+        output += "{},".format(str(Dp))
+    output = output[:-1]
+    output += "\n"
+    for t in np.arange(len(times)):
+        output += "{},".format(times[t])
+        for d in np.arange(len(bin_edges)-1):
+            output += "{},".format(N[t,d])
+        output = output[:-1]
+        output += "\n"
+
+    save_path = 'data/processed/'
+    filename = "{}_ao2018_colocated_psd.txt".format(suite)
+
+    file_writer = open(save_path+filename, "w")
+    file_writer.write(output)
+    file_writer.close()
+    return
 
 # ---------------------------------------------------------------------
 start = dt.datetime.now()
@@ -300,9 +333,15 @@ suite = 'u-ci572'
 if verbose:
     print('\nGetting the aerosol concs from model output..')
 
-N, times = get_ao2018_aerosol_conc(model_output_path, suite)
+N, bin_edges, times = get_ao2018_aerosol_conc(model_output_path, suite)
 
 if verbose:
+    print('\nWriting out time series..')
+
+save_ao2018_aerosol_concs(suite, N, bin_edges, times)
+
+if verbose:
+    print('\nSaved.')
     print('\nPlotting a time series to check functions')
 
 fig = plt.figure(figsize=(25,5), dpi=300)
