@@ -3,6 +3,8 @@
 # =====================================================================
 import numpy as np
 from glob import glob
+import re
+import iris
 # =====================================================================
 def get_csv_contents(filename, split_char=','):
     '''
@@ -25,3 +27,14 @@ def get_csv_contents(filename, split_char=','):
 
     return [file_contents, n_rows, n_cols]
 
+def save_cube(cube, save_folder, save_name=None):
+    """
+    Saves cube as a netCDF file.
+    """
+    if save_name == None:
+        if cube.standard_name:
+            save_name=save_folder+'L1_'+cube.standard_name+'.nc'
+        elif cube.long_name:
+            save_name=save_folder+'L1_'+cube.long_name+'.nc'
+        save_name = re.sub("\s+", "_", save_name)
+    iris.save(cube, save_folder+save_name, netcdf_format="NETCDF4")
