@@ -7,7 +7,7 @@ import iris
 
 def read_atom_nav_file(file_path, flight_number):
     filename = file_path + "ATom{}_flight_tracks.csv".format(flight_number)
-    [file_contents, n_rows, n_cols] = get_csv_contents(filename)
+    file_contents, n_rows, n_cols = get_csv_contents(filename)
 
     # use datetime to convert date string
     # and add on number of seconds for start and end of interval
@@ -29,7 +29,7 @@ def get_ascos_track(ascos_dir):
     ascos_lons = []
     ascos_lats = []
     for file in ascos_files:
-        [file_contents, nrows, ncols] = get_csv_contents(file)
+        file_contents, nrows, ncols = get_csv_contents(file)
         lats = np.array(file_contents[2:,1]).astype(float)
         lons = np.array(file_contents[2:,2]).astype(float)
         west_east = np.array(file_contents[2:,3]).astype(float)

@@ -25,7 +25,7 @@ def get_csv_contents(filename, split_char=','):
         for j in np.arange(0, n_cols):
             file_contents[i,j] = lines[i].strip().split(split_char)[j]
 
-    return [file_contents, n_rows, n_cols]
+    return file_contents, n_rows, n_cols
 
 def save_cube(cube, save_folder, save_name=None):
     """

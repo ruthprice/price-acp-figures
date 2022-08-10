@@ -24,6 +24,9 @@ import numpy as np
 import re
 # from files import save_cube
 
+# load_ao2018_size_dist
+from files import get_csv_contents
+
 # main body
 import datetime as dt
 import campaign_routes as cr
@@ -255,7 +258,7 @@ def total_number_from_dN(dNdlogD, bins, target_bins):
             N[t,d] += dN
     return N
 
-def get_ao2018_aerosol_conc(model_output_path, suite):
+def calculate_ao2018_aerosol_conc(model_output_path, suite):
     '''
     Get aerosol concentration at surface for 2.5-15, 15-100,
     100-500 nm size ranges from model output,
@@ -285,7 +288,35 @@ def get_ao2018_aerosol_conc(model_output_path, suite):
     dNdlogD = integrate_modes(colocated_number_conc, colocated_radius, bins)
     N_limits = [2.5e-9, 15e-9, 100e-9, 500e-9]  # nm
     N = total_number_from_dN(dNdlogD, bins, N_limits)
+    save_ao2018_aerosol_concs(suite, N, N_limits, times)
     return N, N_limits, times
+
+def load_ao2018_aerosol_conc(suite):
+    '''
+    Load time series of aerosol concentrations during AO2018
+    as written to file by save_ao2018_aerosol_concs
+    '''
+    filename = 'data/processed/{}_ao2018_colocated_psd.txt'.format(suite)
+    file_contents, n_rows, n_cols = get_csv_contents(filename)
+    fmt = '%Y-%m-%d %H:%M:%S'
+    times = np.array([dt.datetime.strptime(T, fmt) for T in file_contents[1:,0]])
+    bin_edges = file_contents[0,1:].astype(float)
+    N = file_contents[1:,1:-1].astype(float)
+    return N, bin_edges, times
+
+def get_ao2018_aerosol_conc(model_output_path, suite):
+    '''
+    Load the time series if it's been saved,
+    calculate if not
+    '''
+    filename = glob('data/processed/{}_ao2018_colocated_psd.txt'.format(suite))
+    if filename:
+        print('Loading.')
+        N, bin_edges, times = load_ao2018_aerosol_conc(suite)
+    else:
+        print('Calculating.')
+        N, bin_edges, times = calculate_ao2018_aerosol_conc(model_output_path, suite)
+    return N, bin_edges, times
 
 def save_ao2018_aerosol_concs(suite, N, bin_edges, times):
     '''
@@ -294,8 +325,8 @@ def save_ao2018_aerosol_concs(suite, N, bin_edges, times):
     File will look like this:
 
     Timestep, D[0], D[1],..
-    YYYY-MM-DD HH:MM:SS, N[0,0], N[0,1]..
-    YYYY-MM-DD HH:MM:SS, N[1,0], N[1,1]..
+    YYYY-MM-DD HH:MM:SS, N[0,0], N[0,1]..0,
+    YYYY-MM-DD HH:MM:SS, N[1,0], N[1,1]..0,
 
     where D is the lower limit of that bin
     and N is the data.
@@ -305,12 +336,13 @@ def save_ao2018_aerosol_concs(suite, N, bin_edges, times):
         output += "{},".format(str(Dp))
     output = output[:-1]
     output += "\n"
+    fmt = '%Y-%m-%d %H:%M:%S'
     for t in np.arange(len(times)):
-        output += "{},".format(times[t])
+        output += "{},".format(dt.datetime.strftime(times[t],fmt))
         for d in np.arange(len(bin_edges)-1):
             output += "{},".format(N[t,d])
-        output = output[:-1]
-        output += "\n"
+        # add a 0 at end of column because len(bin_edges) = len(N[0])+1
+        output += "0\n"
 
     save_path = 'data/processed/'
     filename = "{}_ao2018_colocated_psd.txt".format(suite)
@@ -335,20 +367,6 @@ if verbose:
 
 N, bin_edges, times = get_ao2018_aerosol_conc(model_output_path, suite)
 
-if verbose:
-    print('\nWriting out time series..')
-
-save_ao2018_aerosol_concs(suite, N, bin_edges, times)
-
-if verbose:
-    print('\nSaved.')
-    print('\nPlotting a time series to check functions')
-
-fig = plt.figure(figsize=(25,5), dpi=300)
-plt.plot(times, N[:,0])
-plt.yscale('log')
-plt.grid()
-plt.show()
 # ---------------------------------------------------------------------
 # PLOTTING
 # ---------------------------------------------------------------------
