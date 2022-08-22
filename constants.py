@@ -3,8 +3,9 @@
 # =====================================================================
 import iris.coords
 # Thermodynamcs
-mm_air = 28.991e-3 # molar mass of air, J kg-1 K-1
-avo = 6.022e23     # Avogadro's number, J kg-1 K-1
+mm_air = 28.991e-3  # molar mass of air, J kg-1 K-1
+mm_hio3 = 175.91e-3 # kg mole-1
+avo = 6.022e23      # Avogadro's number, J kg-1 K-1
 
 # UKCA
 mode_sig = {

@@ -9,6 +9,21 @@ import figure_props as fprops
 import aerosols as aero
 import time_series_pdf as ts
 from obs_map import plot_obs_map
+# figure 3
+import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+
+# load hio3 data
+import files
+import numpy as np
+import datetime as dt
+# import aerosols as aero
+# load hio3 from model
+from glob import glob
+import iris
+import campaign_routes as cr
+import constants
+
 
 # =====================================================================
 
@@ -19,6 +34,9 @@ verbose = True
 # ---------------------------------------------------------------------
 # PRE-PROCESSING
 # ---------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+# LOAD MODEL DATA FOR FIGURE 2
 model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
 N = {}
 bin_edges = {}
@@ -28,6 +46,8 @@ for suite in fprops.fig2_suites:
         print('\nLoading output from {}..'.format(suite))
         N[suite], bin_edges[suite], times[suite] = aero.get_ao2018_aerosol_conc(model_output_path, suite)
 
+# ---------------------------------------------------------------------
+# LOAD MEASUREMENTS FOR FIGURE 2
 if verbose:
     print('\nLoading observations..')
 # Load CPC and DMPS observations
@@ -59,6 +79,40 @@ n_pdf_bins = 25
 hist_obs, hist_model, pdf_bins_mid = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig2_suites, N, bin_edges, times)
 
 # ---------------------------------------------------------------------
+# LOAD HIO3 MEASUREMENTS FOR FIGURE 3
+# Load observations and Baccarini model data
+hio3_path = "/home/users/eersp/ao2018_observations/"
+hio3_file = "ao2018-aerosol-cims.csv"
+hio3_file_contents, n_rows, n_cols = files.get_csv_contents(hio3_path + hio3_file)
+obs_hio3_n_time = n_rows - 1    # -1 bc there is a header
+fmt = '%Y-%m-%d %H:%M:%S'
+obs_hio3_times = np.array([dt.datetime.strptime(str(T),fmt) for T in hio3_file_contents[1:,0]])
+obs_hio3 = hio3_file_contents[1:,2].astype(float)
+
+obs_hio3_means, obs_hio3_stdev, obs_hio3_mean_times = aero.running_mean(obs_hio3, obs_hio3_times, 3, 1)
+
+# ---------------------------------------------------------------------
+# LOAD MODEL OUTPUT FOR FIGURE 3
+model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/u-cm612/All_time_steps/pk_files/'
+hio3_stashcode = "m01s34i064"
+hio3_file = glob(model_output_path+'*'+hio3_stashcode+'*')
+print(hio3_file)
+model_hio3 = iris.load(hio3_file)[0]
+model_hio3.data
+print(model_hio3)
+air_density = 1.33 # kg m-3
+model_hio3 = model_hio3 * air_density
+colocated_hio3 = cr.colocate_with_ao2018_drift(model_hio3, constants.model_res)
+colocated_hio3_number = iris.cube.CubeList([])
+for t,cube in enumerate(colocated_hio3):
+    cube.long_name = "mass_concentration_of_hio3"
+    number_conc = cube * constants.avo / constants.mm_hio3
+    number_conc.units = "m-3"
+    number_conc.convert_units('cm-3')
+    colocated_hio3_number.append(number_conc.data)
+model_times = aero.get_cube_times(model_hio3, ao_drift=True)
+
+# ---------------------------------------------------------------------
 # PLOTTING
 # ---------------------------------------------------------------------
 
@@ -86,6 +140,70 @@ ts.plot_time_series_pdfs(fprops.fig2_suites, N, times,
                          hist_obs, hist_model, pdf_bins_mid,
                          'figures/fig02.pdf')
 
+# ---------------------------------------------------------------------
+# FIGURE 3: time series and PDF of surface HIO3 concentration during AO2018
+# plot time series and PDF on same figure with subplots
+npf_event_marker_y = 8e6
+
+fig = plt.figure(figsize=(16*fprops.cm,3*fprops.cm), dpi=300)
+widths = [4,1]
+spec = fig.add_gridspec(ncols=2, nrows=1,
+                        width_ratios=widths,
+                        hspace=0.4, wspace=0.1)
+ax1 = fig.add_subplot(spec[0])
+# obs
+ax1.plot(obs_hio3_mean_times, obs_hio3_means, color='black', label="Observations (3hr mean)", linewidth=fprops.thick_line)
+# model
+ax1.plot(model_times, colocated_hio3_number, label=fprops.suite_labels['u-cm612'],
+         color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
+# mark NPF events
+for j,event in enumerate(fprops.ao2018_npf_events):
+            ax1.hlines(npf_event_marker_y,event[0],event[1],
+                       linewidth=0.8, color='red', linestyle=(0,(1.8,0.9)))
+            ax1.plot(event[0], npf_event_marker_y, marker='|', ms=2.5, color='red')
+            ax1.plot(event[1], npf_event_marker_y, marker='|', ms=2.5,color='red')
+ax1.set_xlabel('DoY', fontsize=fprops.ax_fs)
+ax1.set_xlim(right=dt.datetime(2018,9,20))
+ax1.set_ylabel('Surface IA conc [cm$^{-3}$]', fontsize=fprops.ax_fs)
+ax1.tick_params(axis='y', which='major', labelsize=fprops.ax_fs)
+ax1.tick_params(axis='y', which='minor', labelsize=fprops.ax_fs)
+ax1.tick_params(axis='y', which='major', pad=1)
+
+ax1.legend(fontsize=fprops.legend_fs)
+ax1.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+
+# use DOY on x axis
+left_lim_date = dt.datetime(2018, 8, 1)
+right_lim_date = dt.datetime(2018, 9, 19)
+ax1.set_xlim(left=left_lim_date, right=right_lim_date)
+left,right = plt.xlim()
+doy_left = left_lim_date.timetuple().tm_yday
+doy_right = right_lim_date.timetuple().tm_yday
+x_axis_array = np.arange(left,right+1)
+doy_array = np.arange(doy_left, doy_right+1)
+ax1.set_xticks(x_axis_array[::3])
+ax1.set_xticklabels(doy_array[::3])
+ax1.tick_params(axis='x', which='major', labelsize=fprops.ax_fs)
+ax1.tick_params(axis='x', which='minor', labelsize=fprops.ax_fs)
+
+ax1.set_title('(a)', loc='left', fontsize=fprops.label_fs, y=1.1)
+
+ax2 = fig.add_subplot(spec[1])
+# ax2.plot(obs_bin_centers, obs_hist, color='k',
+#          label='Observations', linewidth=linewidth)
+# ax2.plot(bin_centers[s], hists[s], label=fprops.suite_labels['u-cm612'],
+#          color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
+# ax2.set_xlabel("Surface IA conc [cm$^{-3}$]", labelpad=12, fontsize=fprops.ax_fontsize)
+# ax2.tick_params(axis='both', which='major', labelsize=fprops.ax_fontsize)
+# ax2.tick_params(axis='both', which='minor', labelsize=fprops.ax_fontsize)
+# ax2.tick_params(axis='y', which='major', pad=1)
+# ax2.set_title('Freeze season', fontsize=fprops.title_fontsize, y=1.1)
+# ax2.set_title('(b)', loc='left', fontsize=fprops.title_fontsize, y=1.1)
+
+ax1.grid()
+ax2.grid()
+filename = "figures/fig03"
+plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')
 # =====================================================================
 end = dt.datetime.now()
 print('Finished script at {} in {}'.format(end, end-start))
