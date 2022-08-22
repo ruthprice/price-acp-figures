@@ -1385,3 +1385,16 @@ def colocate_with_ao2018_drift(cube, model_resolution):
             colocated_cubes.append(colocated_cube)
 
     return colocated_cubes
+
+def ao2018_melt_freeze_times(freeze_onset, times):
+    # for an array of datetimes
+    # return indices before and after
+    # the date of freeze_onset
+    melt_times = []
+    freeze_times = []
+    for t,timestep in enumerate(times):
+        if timestep < freeze_onset:
+            melt_times.append(t)
+        else:
+            freeze_times.append(t)
+    return melt_times, freeze_times

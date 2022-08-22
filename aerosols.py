@@ -10,6 +10,7 @@ import re
 from files import save_cube
 import datetime as dt
 from files import get_csv_contents
+import numpy.ma as ma
 # =====================================================================
 def lognormal_pdf(mean, sigma, arr):
     # returns pdf of specified lognormal dist at points given by arr
@@ -64,26 +65,41 @@ def integrate_modes(number_conc, radius, bins):
             dNdlogD[t] += dist
     return dNdlogD
 
-def total_number_from_dN(dNdlogD, bins, target_bins):
+def total_number_from_dN(dNdlogD, bins, target_bins, base='e'):
     '''
     From an array of dN/dlogD in bins, sum to get N
     in specified target_bins
     '''
-    dlogD = np.log(bins[1:]) - np.log(bins[:-1])
+    if base=='e':
+        dlogD = np.log(bins[1:]) - np.log(bins[:-1])
+        logD = np.log(bins)
+    elif base=='10':
+        dlogD = np.log10(bins[1:]) - np.log10(bins[:-1])
+        logD = np.log10(bins)
+    else:
+        print("[N_from_dN] ERROR: base should be 'e' or '10'")
     n_time = len(dNdlogD)
     n_target_bins = len(target_bins) - 1
     # find indices of diam list corresponding to the target bins
     # start with 0 - first index of smallest size range
     target_inds = []
     for n in target_bins:
-        loc = np.nonzero(bins < n)[0][-1]
-        # loc is index of largest diameter bin that's still less than n
-        target_inds.append(loc + 1)
-    N = np.zeros((n_time, n_target_bins))
-    for t in np.arange(n_time):
-        for d,D in enumerate(target_inds[:-1]):
-            dN = np.sum(dlogD[D:target_inds[d+1]] * dNdlogD[t,D:target_inds[d+1]])
-            N[t,d] += dN
+        if n == 0:
+            target_inds.append(0)
+        else:
+            loc = np.nonzero(bins < n)[0][-1]
+            # loc is index of largest diameter bin that's still less than n
+            target_inds.append(loc + 1)
+#     N = np.zeros((n_time, n_target_bins))
+#     for t in np.arange(n_time):
+#         for d,D in enumerate(target_inds[:-1]):
+#             dN = ma.sum(dlogD[D:target_inds[d+1]] * dNdlogD[t,D:target_inds[d+1]])
+#             N[t,d] += dN
+#     return N
+
+    N = ma.zeros((n_time, n_target_bins))
+    for d,D in enumerate(target_inds[:-1]):
+        N[:,d] = np.trapz(dNdlogD[:,D:target_inds[d+1]], x=logD[D:target_inds[d+1]], axis=1)
     return N
 
 def load_3hr_surface_aerosol_number_conc(model_output_path, suite):
@@ -110,6 +126,8 @@ def load_3hr_surface_aerosol_number_conc(model_output_path, suite):
     ncon_cubes = {}
     for cube in nmr_cubes_list:
         label = [mode for mode in constants.modes if "_"+mode in cube.long_name.lower()][0]
+        if cube.shape[1] == 2:
+            cube = cube[:,0]
         cube.data
         n_conc = cube*particle_density_of_air
         n_conc.long_name = "number_concentration_of_{}_mode_aerosol".format(label)
@@ -150,6 +168,8 @@ def load_3hr_surface_aerosol_mass_conc(model_output_path, suite):
     mcon_cubes = {}
     for cube in mmr_cubes_list:
         label = [cpt for cpt in mmr_stashcodes.keys() if "_"+cpt in cube.long_name.lower()][0]
+        if cube.shape[1] == 2:
+            cube = cube[:,0]
         cube.data
         m_conc = cube*air_density
         m_conc.units = "kg m-3"
@@ -231,6 +251,8 @@ def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None):
         radius = {}
         for m,mode in enumerate(constants.modes):
             radius[mode] = iris.load(radius_files[m])[0]
+            if radius[mode].shape[1] == 2:
+                radius[mode] = radius[mode][:,0]
             radius[mode].data
     return radius
 
@@ -283,9 +305,6 @@ def calculate_ao2018_aerosol_conc(model_output_path, suite):
     colocated_number_conc = {}
     colocated_radius = {}
     for mode in constants.modes:
-        if verbose:
-            print(mode)
-
         cube = number_conc[mode]
         colocated_number_conc[mode] = cr.colocate_with_ao2018_drift(cube, constants.model_res)
         cube = radius[mode]
@@ -298,13 +317,13 @@ def calculate_ao2018_aerosol_conc(model_output_path, suite):
     dNdlogD = integrate_modes(colocated_number_conc, colocated_radius, bins)
     N_limits = [2.5e-9, 15e-9, 100e-9, 500e-9]  # nm
     N = total_number_from_dN(dNdlogD, bins, N_limits)
-    save_ao2018_aerosol_concs(suite, N, N_limits, times)
+    save_ao2018_aerosol_conc(suite, N, N_limits, times)
     return N, N_limits, times
 
 def load_ao2018_aerosol_conc(suite):
     '''
     Load time series of aerosol concentrations during AO2018
-    as written to file by save_ao2018_aerosol_concs
+    as written to file by save_ao2018_aerosol_conc
     '''
     filename = 'data/processed/{}_ao2018_colocated_psd.txt'.format(suite)
     file_contents, n_rows, n_cols = get_csv_contents(filename)
@@ -327,3 +346,134 @@ def get_ao2018_aerosol_conc(model_output_path, suite):
         print('Calculating.')
         N, bin_edges, times = calculate_ao2018_aerosol_conc(model_output_path, suite)
     return N, bin_edges, times
+
+def load_ao2018_ufp(data_path):
+    '''
+    Load the ultrafine particle (N_2.5) dataset from the AO2018 campaign
+    '''
+    file_contents, n_rows, n_cols = get_csv_contents(data_path)
+    n_time_ufp = n_rows - 1
+    timestamps_str = file_contents[1:,0]
+    fmt = '%Y-%m-%d %H:%M:%S'
+    ufp_timestamps = np.array([dt.datetime.strptime(T, fmt) for T in timestamps_str])
+    ufp_conc = file_contents[1:,1].astype(float)
+    # set minimum threshold
+    ufp_conc[(ufp_conc<0.5)] = 0.
+    ufp_conc = ma.masked_where(ufp_conc==0, ufp_conc)
+    return ufp_conc, ufp_timestamps
+
+def load_ao2018_dmps(data_path):
+    '''
+    Load the DMPS dataset from the AO2018 campaign
+    '''
+    file_contents, n_rows, n_cols = get_csv_contents(data_path)
+    n_time_dmps = n_rows - 1
+    n_bins_dmps = n_cols - 2
+    timestamps_str = file_contents[1:,0]
+    fmt = '%Y-%m-%d %H:%M:%S'
+    dmps_timestamps = np.array([dt.datetime.strptime(T, fmt) for T in timestamps_str])
+    dmps_diam_mid = file_contents[0,1:-1].astype(float)
+    dmps_dNdlogD = file_contents[1:,1:-1].astype(float)
+    qc_flag = file_contents[1:,-1].astype(int)
+    mask = np.zeros(dmps_dNdlogD.shape)
+    mask[(qc_flag==2)] = 1
+    dmps_dNdlogD = ma.masked_array(dmps_dNdlogD, mask=mask)
+    return dmps_dNdlogD, dmps_diam_mid, dmps_timestamps
+
+def running_mean(X, times, n_hours, spacing):
+    '''
+    Calculates running means of array X for n_hours window
+    e.g. if n_hours=3, 3 hourly means.
+    spacing is number of timesteps to move each mean
+    e.g. if spacing=1, give running mean for each timestep
+    '''
+    running_means = []
+    std_devs = []
+    running_mean_times = []
+
+    lower = 0
+    upper = 0
+    while upper < len(times) - 1:
+        # get index of T+n hrs
+        upper = np.nonzero(times < times[lower] + dt.timedelta(hours=n_hours))[0][-1]
+        subset = np.arange(lower, upper+1) # indices of 3hr window
+        subset_times = times[subset]
+        subset_range = subset_times[-1] - subset_times[0]
+        subset_median_time = subset_times[0] + subset_range/2
+        running_mean_times.append(subset_median_time)
+        running_means.append(ma.mean(X[subset], axis=0))
+        std_devs.append(ma.std(X[subset], axis=0))
+        lower += spacing
+    running_means = ma.array(running_means)
+    running_mean_times = np.array(running_mean_times)
+    std_devs = ma.array(std_devs)
+    return running_means, std_devs, running_mean_times
+
+def ao2018_melt_freeze_pdfs(n_pdf_bins, suites, N, Dp_bin_edges, times,
+                            obs=None, freeze_up=dt.datetime(2018,8,27)):
+    '''
+    Creates PDFs of observations and model output (for suites)
+    of aerosol concentrations in 3 sizes during AO2018
+    split into the melt and freeze periods
+    returns PDFS for observations, model and the bins
+    '''
+    if obs == None:
+        # Load data if need be
+        ao2018_data_file_dir = "/home/users/eersp/ao2018_observations/"
+        ufp_data_in = ao2018_data_file_dir + "ao2018-aerosol-ufp.csv"
+        dmps_data_in = ao2018_data_file_dir + 'DMPS_for_Ruth.csv'
+        ufp_conc, ufp_times = load_ao2018_ufp(ufp_data_in)
+        dmps_dNdlogD, dmps_diam_mid, dmps_times = load_ao2018_dmps(dmps_data_in)
+        # integrate dmps data
+        i_15_dmps = np.nonzero(dmps_diam_mid < 15.0)[0][-1]
+        i_100_dmps = np.nonzero(dmps_diam_mid < 100.0)[0][-1]
+        i_500_dmps = np.nonzero(dmps_diam_mid < 500.0)[0][-1]
+        dmps_N_15_100 = np.trapz(dmps_dNdlogD[:,i_15_dmps:i_100_dmps], x=np.log10(dmps_diam_mid[i_15_dmps:i_100_dmps]), axis=1)
+        dmps_N_100_500 = np.trapz(dmps_dNdlogD[:,i_100_dmps:i_500_dmps], x=np.log10(dmps_diam_mid[i_100_dmps:i_500_dmps]), axis=1)
+        # take running means
+        ufp_running_means, stdev, ufp_running_mean_times = running_mean(ufp_conc, ufp_times, 3, 1)
+        dmps_N15_100_running_means, stdev, dmps_N100_500_running_means = running_mean(dmps_N_15_100, dmps_times, 3, 1)
+        dmps_N100_500_running_means, stdev, dmps_running_mean_times = running_mean(dmps_N_100_500, dmps_times, 3, 1)
+
+    # separate obs into melt and freeze
+    ufp_melt_times, ufp_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, ufp_running_mean_times)
+    ufp_melt = ufp_running_means[ufp_melt_times]
+    ufp_freeze = ufp_running_means[ufp_freeze_times]
+    dmps_melt_times, dmps_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, dmps_running_mean_times)
+    dmps_N15_100_melt = dmps_N15_100_running_means[dmps_melt_times]
+    dmps_N15_100_freeze = dmps_N15_100_running_means[dmps_freeze_times]
+    dmps_N100_500_melt = dmps_N100_500_running_means[dmps_melt_times]
+    dmps_N100_500_freeze = dmps_N100_500_running_means[dmps_freeze_times]
+    # now the model output
+    model_melt_times = {}
+    model_freeze_times = {}
+    model_melt = {}
+    model_freeze = {}
+    for i,suite in enumerate(suites):
+        model_melt_times[suite], model_freeze_times[suite] = cr.ao2018_melt_freeze_times(freeze_up, times[suite])
+        model_melt[suite] = N[suite][model_melt_times[suite]]
+        model_freeze[suite] = N[suite][model_freeze_times[suite]]
+    n_Dp_bins = len(Dp_bin_edges[suites[0]]) - 1
+    # get max values
+    obs_data_all = [ufp_running_means,dmps_N15_100_running_means,dmps_N100_500_running_means]
+    obs_data_melt = [ufp_melt,dmps_N15_100_melt,dmps_N100_500_melt]
+    obs_data_freeze = [ufp_freeze,dmps_N15_100_freeze,dmps_N100_500_freeze]
+    max_N = [np.amax(X) for X in obs_data_all]
+    max_N_log = np.log10(max_N) 
+    # define bins
+    pdf_bins = [np.logspace(-4, N, n_pdf_bins+1) for N in max_N_log]
+    pdf_bins_mid = [0.5*(X[1:] + X[:-1]) for X in pdf_bins]
+
+    # Observations
+    hist_obs = np.zeros((n_Dp_bins, 2, n_pdf_bins))
+    for n in np.arange(n_Dp_bins):
+        hist_obs[n,0] = np.histogram(obs_data_melt[n], density=True, bins=pdf_bins[n])[0]
+        hist_obs[n,1] = np.histogram(obs_data_freeze[n], density=True, bins=pdf_bins[n])[0]
+    # Model
+    hist_model = {}
+    for s,suite in enumerate(suites):
+        hist_model[suite] = np.zeros((n_Dp_bins, 2, n_pdf_bins))
+        for n in np.arange(n_Dp_bins):
+            hist_model[suite][n,0] = np.histogram(model_melt[suite][:,n], density=True, bins=pdf_bins[n])[0]
+            hist_model[suite][n,1] = np.histogram(model_freeze[suite][:,n], density=True, bins=pdf_bins[n])[0]
+    return hist_obs, hist_model, pdf_bins_mid
