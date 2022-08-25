@@ -23,6 +23,7 @@ from glob import glob
 import iris
 import campaign_routes as cr
 import constants
+import numpy.ma as ma
 
 
 # =====================================================================
@@ -81,6 +82,8 @@ hist_obs, hist_model, pdf_bins_mid = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fp
 # ---------------------------------------------------------------------
 # LOAD HIO3 MEASUREMENTS FOR FIGURE 3
 # Load observations and Baccarini model data
+if verbose:
+    print('\nLoading HIO3..')
 hio3_path = "/home/users/eersp/ao2018_observations/"
 hio3_file = "ao2018-aerosol-cims.csv"
 hio3_file_contents, n_rows, n_cols = files.get_csv_contents(hio3_path + hio3_file)
@@ -111,6 +114,27 @@ for t,cube in enumerate(colocated_hio3):
     number_conc.convert_units('cm-3')
     colocated_hio3_number.append(number_conc.data)
 model_times = aero.get_cube_times(model_hio3, ao_drift=True)
+colocated_hio3_number = np.array(colocated_hio3_number)
+
+if verbose:
+    print('\nMaking HIO3 PDFs..')
+n_hio3_pdf_bins = 20
+
+freeze_up = dt.datetime(2018,8,27)
+hio3_melt_times, hio3_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, obs_hio3_mean_times)
+model_melt_times, model_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, model_times)
+
+# define bins
+max_hio3 = ma.amax(obs_hio3_means)
+hio3_pdf_bins = np.linspace(0, max_hio3, n_hio3_pdf_bins+1)
+hio3_pdf_bins_mid = 0.5*(hio3_pdf_bins[1:] + hio3_pdf_bins[:-1])
+
+hio3_hist_obs = np.zeros((2, n_hio3_pdf_bins))
+hio3_hist_obs[0] = np.histogram(obs_hio3_means[hio3_melt_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_obs[1] = np.histogram(obs_hio3_means[hio3_freeze_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_model = np.zeros((2, n_hio3_pdf_bins))
+hio3_hist_model[0] = np.histogram(colocated_hio3_number[model_melt_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_model[1] = np.histogram(colocated_hio3_number[model_freeze_times], density=True, bins=hio3_pdf_bins)[0]
 
 # ---------------------------------------------------------------------
 # PLOTTING
@@ -143,6 +167,8 @@ ts.plot_time_series_pdfs(fprops.fig2_suites, N, times,
 # ---------------------------------------------------------------------
 # FIGURE 3: time series and PDF of surface HIO3 concentration during AO2018
 # plot time series and PDF on same figure with subplots
+if verbose:
+    print('\nMaking figure 3..')
 npf_event_marker_y = 8e6
 
 fig = plt.figure(figsize=(16*fprops.cm,3*fprops.cm), dpi=300)
@@ -189,16 +215,16 @@ ax1.tick_params(axis='x', which='minor', labelsize=fprops.ax_fs)
 ax1.set_title('(a)', loc='left', fontsize=fprops.label_fs, y=1.1)
 
 ax2 = fig.add_subplot(spec[1])
-# ax2.plot(obs_bin_centers, obs_hist, color='k',
-#          label='Observations', linewidth=linewidth)
-# ax2.plot(bin_centers[s], hists[s], label=fprops.suite_labels['u-cm612'],
-#          color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
-# ax2.set_xlabel("Surface IA conc [cm$^{-3}$]", labelpad=12, fontsize=fprops.ax_fontsize)
-# ax2.tick_params(axis='both', which='major', labelsize=fprops.ax_fontsize)
-# ax2.tick_params(axis='both', which='minor', labelsize=fprops.ax_fontsize)
-# ax2.tick_params(axis='y', which='major', pad=1)
-# ax2.set_title('Freeze season', fontsize=fprops.title_fontsize, y=1.1)
-# ax2.set_title('(b)', loc='left', fontsize=fprops.title_fontsize, y=1.1)
+ax2.plot(hio3_pdf_bins_mid, hio3_hist_obs[1], color='k',
+         label='Observations', linewidth=fprops.thick_line)
+ax2.plot(hio3_pdf_bins_mid, hio3_hist_model[1], label=fprops.suite_labels['u-cm612'],
+         color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
+ax2.set_xlabel("Surface IA conc [cm$^{-3}$]", labelpad=12, fontsize=fprops.ax_fs)
+ax2.tick_params(axis='both', which='major', labelsize=fprops.ax_fs)
+ax2.tick_params(axis='both', which='minor', labelsize=fprops.ax_fs)
+ax2.tick_params(axis='y', which='major', pad=1)
+ax2.set_title('Freeze season', fontsize=fprops.label_fs, y=1.1)
+ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs, y=1.1)
 
 ax1.grid()
 ax2.grid()
