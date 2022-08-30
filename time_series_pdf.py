@@ -8,6 +8,10 @@ import numpy as np
 import matplotlib.lines as mlines
 import datetime as dt
 import matplotlib.dates as mdates
+import matplotlib.cm as cm
+from matplotlib.colors import BoundaryNorm
+import string
+from matplotlib.ticker import FuncFormatter
 # =====================================================================
 def plot_time_series_pdfs(suites, model_N, model_T, obs_N, obs_T, obs_stdev,
                           hist_obs, hist_model, pdf_bins_mid, filename):
@@ -168,4 +172,52 @@ def plot_IA_time_series_pdf(obs_IA, obs_T, model_IA, model_T,
     ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs, y=1.1)
     ax1.grid()
     ax2.grid()
+    plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')
+
+def time_series_3d(sol_nuc_N, zbl, model_times, model_heights, filename):
+    cmap = cm.get_cmap('magma')
+    levels = [1e-1, 1e0, 1e1, 1e2, 1e3, 1e4]
+    norm = BoundaryNorm(levels,ncolors=cmap.N,extend='both')
+    fig = plt.figure(figsize=(16*fprops.cm,12*fprops.cm),dpi=300)
+    spec = fig.add_gridspec(ncols=1,nrows=3,hspace=0.3)
+    ax = []
+    subfig_labels = string.ascii_lowercase
+    for s,suite in enumerate(fprops.fig4_suites):
+        ax1 = fig.add_subplot(spec[s])
+        N = sol_nuc_N[suite]
+        C = ax1.pcolormesh(model_times, model_heights, N.transpose(),
+                           norm=norm, cmap=cmap, shading='nearest',
+                           rasterized=True)
+        plt.plot(model_times, zbl[suite]/1000,
+             color='white', label='BL height', linewidth=0.75)
+        if s == 0:
+            ax1.legend(fontsize=fprops.legend_fs)
+        ax1.set_title(fprops.suite_labels[suite], fontsize=fprops.label_fs)
+        ax1.set_title('({})'.format(subfig_labels[s]), loc='left', fontsize=fprops.label_fs)
+        # make pretty axes
+        left_lim_date = dt.datetime(2018, 8, 2)
+        right_lim_date = dt.datetime(2018, 9, 19)
+        ax1.set_xlim(left=left_lim_date, right=right_lim_date)
+        left,right = ax1.get_xlim()
+        doy_left = left_lim_date.timetuple().tm_yday
+        doy_right = right_lim_date.timetuple().tm_yday
+        x_axis_array = np.arange(left,right+1)
+        doy_array = np.arange(doy_left, doy_right+1)
+        ax1.set_xticks(x_axis_array[::2])
+        if s == len(fprops.fig4_suites)-1:
+            ax1.set_xticklabels(doy_array[::2])
+        else:
+            ax1.set_xticklabels([])
+        ax1.tick_params(axis='x', labelsize=fprops.ax_fs)
+        ax1.tick_params(axis='y', labelsize=fprops.ax_fs)
+        ax.append(ax1)
+    fig.supxlabel('Day of year', fontsize=fprops.ax_label_fs,
+              y=-0.25, x=0.5, ha='center', transform=ax[-1].transAxes)
+    fig.supylabel('Altitude [km]', fontsize=fprops.ax_label_fs, x=0.075)
+    # colorbar
+    fmt = lambda x, pos: '10$^{{{:.0f}}}$'.format(np.log10(x))
+    cbar = plt.colorbar(C, extend='both', label="N [cm$^{-3}$]",
+                        ax=ax, format=FuncFormatter(fmt), shrink=0.6)
+    cbar.ax.tick_params(labelsize=fprops.ax_fs)
+    cbar.ax.set_ylabel(ylabel="Nucleation particle concentration [cm$^{-3}$]", fontsize=fprops.ax_label_fs)
     plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')

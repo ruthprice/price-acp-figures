@@ -10,11 +10,7 @@ import aerosols as aero
 import time_series_pdf as ts
 from obs_map import plot_obs_map
 # figure 4
-import matplotlib.cm as cm
-from matplotlib.colors import BoundaryNorm
-import string
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter
 
 # load hio3 data
 import files
@@ -83,7 +79,7 @@ if verbose:
 n_pdf_bins = 25
 hist_obs, hist_model, pdf_bins_mid = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig2_suites, N, bin_edges, times)
 
----------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # LOAD HIO3 MEASUREMENTS FOR FIGURE 3
 # Load observations and Baccarini model data
 if verbose:
@@ -103,10 +99,12 @@ obs_hio3_means, obs_hio3_stdev, obs_hio3_mean_times = aero.running_mean(obs_hio3
 model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/u-cm612/All_time_steps/pk_files/'
 hio3_stashcode = "m01s34i064"
 hio3_file = glob(model_output_path+'*'+hio3_stashcode+'*')
-print(hio3_file)
+if verbose:
+    print(hio3_file)
 model_hio3 = iris.load(hio3_file)[0]
 model_hio3.data
-print(model_hio3)
+if verbose:
+    print(model_hio3)
 air_density = 1.33 # kg m-3
 model_hio3 = model_hio3 * air_density
 colocated_hio3 = cr.colocate_with_ao2018_drift(model_hio3, constants.model_res)
@@ -162,7 +160,8 @@ for s,suite in enumerate(fprops.fig4_suites):
     nuc_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,nuc_stash))
     nuc_per_air_mol = iris.load(nuc_file)[0]
     nuc_per_air_mol.data
-    print(nuc_per_air_mol)
+    if verbose:
+        print(nuc_per_air_mol)
     n_conc = nuc_per_air_mol*particle_density_of_air
     n_conc.long_name = "number_concentration_of_soluble_nucleation_mode_aerosol"
     n_conc.units = "m-3"
@@ -176,7 +175,8 @@ for s,suite in enumerate(fprops.fig4_suites):
     zbl_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,zbl_stash))
     z = iris.load(zbl_file)[0]
     z.data
-    print(z)
+    if verbose:
+        print(z)
     zbl_coloc = cr.colocate_with_ao2018_drift(z, constants.model_res)
     zbl[suite] = np.array([cube.data for cube in zbl_coloc])
 
@@ -229,56 +229,7 @@ if verbose:
 if verbose:
     print('\nMaking figure 4..')
 
-cmap = cm.get_cmap('magma')
-levels = [1e-1, 1e0, 1e1, 1e2, 1e3, 1e4]
-norm = BoundaryNorm(levels,ncolors=cmap.N,extend='both')
-# for m,mode in enumerate(modes):
-#     print(mode)
-fig = plt.figure(figsize=(16*fprops.cm,12*fprops.cm),dpi=300)
-spec = fig.add_gridspec(ncols=1,nrows=3,hspace=0.3)
-ax = []
-subfig_labels = string.ascii_lowercase
-for s,suite in enumerate(fprops.fig4_suites):
-    ax1 = fig.add_subplot(spec[s])
-    N = sol_nuc_N[suite]
-    C = ax1.pcolormesh(fig4_times, fig4_heights, N.transpose(),
-                       norm=norm, cmap=cmap, shading='nearest',
-                       rasterized=True)
-    plt.plot(fig4_times, zbl[suite]/1000,
-             color='white', label='BL height', linewidth=0.75)
-    if s == 0:
-        ax1.legend(fontsize=fprops.legend_fs)
-    ax1.set_title(fprops.suite_labels[suite], fontsize=fprops.label_fs)
-    ax1.set_title('({})'.format(subfig_labels[s]), loc='left', fontsize=fprops.label_fs)
-    # make pretty axes
-    left_lim_date = dt.datetime(2018, 8, 2)
-    right_lim_date = dt.datetime(2018, 9, 19)
-    ax1.set_xlim(left=left_lim_date, right=right_lim_date)
-    left,right = ax1.get_xlim()
-    doy_left = left_lim_date.timetuple().tm_yday
-    doy_right = right_lim_date.timetuple().tm_yday
-    x_axis_array = np.arange(left,right+1)
-    doy_array = np.arange(doy_left, doy_right+1)
-    ax1.set_xticks(x_axis_array[::2])
-    if s == len(fprops.fig4_suites)-1:
-        ax1.set_xticklabels(doy_array[::2])
-    else:
-        ax1.set_xticklabels([])
-    ax1.tick_params(axis='x', labelsize=fprops.ax_fs)
-    ax1.tick_params(axis='y', labelsize=fprops.ax_fs)
-    ax.append(ax1)
-fig.supxlabel('Day of year', fontsize=fprops.ax_label_fs,
-          y=-0.25, x=0.5, ha='center', transform=ax[-1].transAxes)
-fig.supylabel('Altitude [km]', fontsize=fprops.ax_label_fs, x=0.075)
-# colorbar
-fmt = lambda x, pos: '10$^{{{:.0f}}}$'.format(np.log10(x))
-cbar = plt.colorbar(C, extend='both', label="N [cm$^{-3}$]",
-                    ax=ax, format=FuncFormatter(fmt), shrink=0.6)
-cbar.ax.tick_params(labelsize=fprops.ax_fs)
-cbar.ax.set_ylabel(ylabel="Nucleation particle concentration [cm$^{-3}$]", fontsize=fprops.ax_label_fs)
-filename = 'figures/fig04'
-plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')
-
+ts.time_series_3d(sol_nuc_N, zbl, fig4_times, fig4_heights, 'figures/fig04')
 
 if verbose:
     print('Done.')
