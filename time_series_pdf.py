@@ -164,7 +164,7 @@ def plot_IA_time_series_pdf(obs_IA, obs_T, model_IA, model_T,
     ax2.tick_params(axis='both', which='major', labelsize=fprops.ax_fs)
     ax2.tick_params(axis='both', which='minor', labelsize=fprops.ax_fs)
     ax2.tick_params(axis='y', which='major', pad=1)
-    ax2.set_title('Freeze season', loc='right' fontsize=fprops.label_fs, y=1.1)
+    ax2.set_title('Freeze season', loc='right', fontsize=fprops.label_fs, y=1.1)
     ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs, y=1.1)
     ax1.grid()
     ax2.grid()

@@ -15,6 +15,12 @@ fig2_suites = [
     'u-cm614'
 ]
 
+fig4_suites = [
+    'u-ci572',
+    'u-ch625',
+    'u-cj340'
+]
+
 # Simulation names for legends
 suite_labels = {
     # CONTROL

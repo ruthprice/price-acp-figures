@@ -9,9 +9,12 @@ import figure_props as fprops
 import aerosols as aero
 import time_series_pdf as ts
 from obs_map import plot_obs_map
-# figure 3
+# figure 4
+import matplotlib.cm as cm
+from matplotlib.colors import BoundaryNorm
+import string
 import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
+from matplotlib.ticker import FuncFormatter
 
 # load hio3 data
 import files
@@ -21,6 +24,7 @@ import datetime as dt
 # load hio3 from model
 from glob import glob
 import iris
+import iris.coord_categorisation
 import campaign_routes as cr
 import constants
 import numpy.ma as ma
@@ -79,7 +83,7 @@ if verbose:
 n_pdf_bins = 25
 hist_obs, hist_model, pdf_bins_mid = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig2_suites, N, bin_edges, times)
 
-# ---------------------------------------------------------------------
+---------------------------------------------------------------------
 # LOAD HIO3 MEASUREMENTS FOR FIGURE 3
 # Load observations and Baccarini model data
 if verbose:
@@ -137,6 +141,47 @@ hio3_hist_model[0] = np.histogram(colocated_hio3_number[model_melt_times], densi
 hio3_hist_model[1] = np.histogram(colocated_hio3_number[model_freeze_times], density=True, bins=hio3_pdf_bins)[0]
 
 # ---------------------------------------------------------------------
+# LOAD MODEL OUTPUT FOR FIG 4
+if verbose:
+    print('\nLoading output for fig 4..')
+model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
+nuc_stash = 'm01s34i101'
+sol_nuc_N = {}
+zbl = {}
+for s,suite in enumerate(fprops.fig4_suites):
+    density_file = "{}{}/L1/daily_3d/L1_air_density_Density_of_air.nc".format(model_output_path,suite)
+    air_density = iris.load(density_file)[0]
+    particle_density_of_air = (air_density/constants.mm_air)*constants.avo
+    try:
+        iris.coord_categorisation.add_day_of_year(particle_density_of_air, 'time', name='day_of_year')
+        iris.coord_categorisation.add_year(particle_density_of_air, 'time', name='year')
+    except ValueError:
+        # ValueError raised if coord already exists
+        # don't know if anything else would trigger it so be careful
+        pass
+    nuc_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,nuc_stash))
+    nuc_per_air_mol = iris.load(nuc_file)[0]
+    nuc_per_air_mol.data
+    print(nuc_per_air_mol)
+    n_conc = nuc_per_air_mol*particle_density_of_air
+    n_conc.long_name = "number_concentration_of_soluble_nucleation_mode_aerosol"
+    n_conc.units = "m-3"
+    n_conc.convert_units('cm-3')
+    n_conc_coloc = cr.colocate_with_ao2018_drift(n_conc, constants.model_res)
+    sol_nuc_N[suite] = np.array([cube.data for cube in n_conc_coloc])
+    fig4_times = aero.get_cube_times(n_conc, ao_drift=True)
+    fig4_heights = n_conc.coord('level_height').points/1000
+
+    zbl_stash = 'm01s00i025'
+    zbl_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,zbl_stash))
+    z = iris.load(zbl_file)[0]
+    z.data
+    print(z)
+    zbl_coloc = cr.colocate_with_ao2018_drift(z, constants.model_res)
+    zbl[suite] = np.array([cube.data for cube in zbl_coloc])
+
+
+# ---------------------------------------------------------------------
 # PLOTTING
 # ---------------------------------------------------------------------
 
@@ -176,6 +221,65 @@ ts.plot_IA_time_series_pdf(obs_hio3_means, obs_hio3_mean_times,
                            hio3_hist_obs[1], hio3_pdf_bins_mid,
                            hio3_hist_model[1], hio3_pdf_bins_mid,
                            "figures/fig03")
+if verbose:
+    print('Done.')
+
+# ---------------------------------------------------------------------
+# FIGURE 4: colocated aerosol height profiles for nucleation mode
+if verbose:
+    print('\nMaking figure 4..')
+
+cmap = cm.get_cmap('magma')
+levels = [1e-1, 1e0, 1e1, 1e2, 1e3, 1e4]
+norm = BoundaryNorm(levels,ncolors=cmap.N,extend='both')
+# for m,mode in enumerate(modes):
+#     print(mode)
+fig = plt.figure(figsize=(16*fprops.cm,12*fprops.cm),dpi=300)
+spec = fig.add_gridspec(ncols=1,nrows=3,hspace=0.3)
+ax = []
+subfig_labels = string.ascii_lowercase
+for s,suite in enumerate(fprops.fig4_suites):
+    ax1 = fig.add_subplot(spec[s])
+    N = sol_nuc_N[suite]
+    C = ax1.pcolormesh(fig4_times, fig4_heights, N.transpose(),
+                       norm=norm, cmap=cmap, shading='nearest',
+                       rasterized=True)
+    plt.plot(fig4_times, zbl[suite]/1000,
+             color='white', label='BL height', linewidth=0.75)
+    if s == 0:
+        ax1.legend(fontsize=fprops.legend_fs)
+    ax1.set_title(fprops.suite_labels[suite], fontsize=fprops.label_fs)
+    ax1.set_title('({})'.format(subfig_labels[s]), loc='left', fontsize=fprops.label_fs)
+    # make pretty axes
+    left_lim_date = dt.datetime(2018, 8, 2)
+    right_lim_date = dt.datetime(2018, 9, 19)
+    ax1.set_xlim(left=left_lim_date, right=right_lim_date)
+    left,right = ax1.get_xlim()
+    doy_left = left_lim_date.timetuple().tm_yday
+    doy_right = right_lim_date.timetuple().tm_yday
+    x_axis_array = np.arange(left,right+1)
+    doy_array = np.arange(doy_left, doy_right+1)
+    ax1.set_xticks(x_axis_array[::2])
+    if s == len(fprops.fig4_suites)-1:
+        ax1.set_xticklabels(doy_array[::2])
+    else:
+        ax1.set_xticklabels([])
+    ax1.tick_params(axis='x', labelsize=fprops.ax_fs)
+    ax1.tick_params(axis='y', labelsize=fprops.ax_fs)
+    ax.append(ax1)
+fig.supxlabel('Day of year', fontsize=fprops.ax_label_fs,
+          y=-0.25, x=0.5, ha='center', transform=ax[-1].transAxes)
+fig.supylabel('Altitude [km]', fontsize=fprops.ax_label_fs, x=0.075)
+# colorbar
+fmt = lambda x, pos: '10$^{{{:.0f}}}$'.format(np.log10(x))
+cbar = plt.colorbar(C, extend='both', label="N [cm$^{-3}$]",
+                    ax=ax, format=FuncFormatter(fmt), shrink=0.6)
+cbar.ax.tick_params(labelsize=fprops.ax_fs)
+cbar.ax.set_ylabel(ylabel="Nucleation particle concentration [cm$^{-3}$]", fontsize=fprops.ax_label_fs)
+filename = 'figures/fig04'
+plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')
+
+
 if verbose:
     print('Done.')
 # =====================================================================
