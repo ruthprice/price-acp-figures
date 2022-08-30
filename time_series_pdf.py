@@ -107,3 +107,65 @@ def plot_time_series_pdfs(suites, model_N, model_T, obs_N, obs_T, obs_stdev,
 
     plt.savefig(filename, bbox_inches="tight", facecolor='white', format='pdf')
     plt.close()
+
+def plot_IA_time_series_pdf(obs_IA, obs_T, model_IA, model_T,
+                            obs_hist, obs_bins, model_hist, model_bins,
+                            filename):
+    npf_event_marker_y = 8e6
+
+    fig = plt.figure(figsize=(16*fprops.cm,3*fprops.cm), dpi=300)
+    widths = [4,1]
+    spec = fig.add_gridspec(ncols=2, nrows=1,
+                            width_ratios=widths,
+                            hspace=0.4, wspace=0.1)
+    ax1 = fig.add_subplot(spec[0])
+    # obs
+    ax1.plot(obs_T, obs_IA, color='black', label="Observations (3hr mean)", linewidth=fprops.thick_line)
+    # model
+    ax1.plot(model_T, model_IA, label=fprops.suite_labels['u-cm612'],
+             color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
+    # mark NPF events
+    for j,event in enumerate(fprops.ao2018_npf_events):
+        ax1.hlines(npf_event_marker_y,event[0],event[1],
+                   linewidth=0.8, color='red', linestyle=(0,(1.8,0.9)))
+        ax1.plot(event[0], npf_event_marker_y, marker='|', ms=2.5, color='red')
+        ax1.plot(event[1], npf_event_marker_y, marker='|', ms=2.5,color='red')
+    # make pretty axes
+    ax1.set_xlabel('DoY', fontsize=fprops.ax_fs)
+    ax1.set_xlim(right=dt.datetime(2018,9,20))
+    ax1.set_ylabel('Surface IA conc [cm$^{-3}$]', fontsize=fprops.ax_fs)
+    ax1.tick_params(axis='y', which='major', labelsize=fprops.ax_fs)
+    ax1.tick_params(axis='y', which='minor', labelsize=fprops.ax_fs)
+    ax1.tick_params(axis='y', which='major', pad=1)
+    ax1.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+    # use DOY on x axis
+    left_lim_date = dt.datetime(2018, 8, 1)
+    right_lim_date = dt.datetime(2018, 9, 19)
+    ax1.set_xlim(left=left_lim_date, right=right_lim_date)
+    left,right = plt.xlim()
+    doy_left = left_lim_date.timetuple().tm_yday
+    doy_right = right_lim_date.timetuple().tm_yday
+    x_axis_array = np.arange(left,right+1)
+    doy_array = np.arange(doy_left, doy_right+1)
+    ax1.set_xticks(x_axis_array[::3])
+    ax1.set_xticklabels(doy_array[::3])
+    ax1.tick_params(axis='x', which='major', labelsize=fprops.ax_fs)
+    ax1.tick_params(axis='x', which='minor', labelsize=fprops.ax_fs)
+    ax1.legend(fontsize=fprops.legend_fs)
+    ax1.set_title('(a)', loc='left', fontsize=fprops.label_fs, y=1.1)
+    # PDFs
+    ax2 = fig.add_subplot(spec[1])
+    ax2.plot(obs_bins, obs_hist, color='k',
+             label='Observations', linewidth=fprops.thick_line)
+    ax2.plot(model_bins, model_hist, label=fprops.suite_labels['u-cm612'],
+             color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
+    # Pretty axes
+    ax2.set_xlabel("Surface IA conc [cm$^{-3}$]", labelpad=12, fontsize=fprops.ax_fs)
+    ax2.tick_params(axis='both', which='major', labelsize=fprops.ax_fs)
+    ax2.tick_params(axis='both', which='minor', labelsize=fprops.ax_fs)
+    ax2.tick_params(axis='y', which='major', pad=1)
+    ax2.set_title('Freeze season', loc='right' fontsize=fprops.label_fs, y=1.1)
+    ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs, y=1.1)
+    ax1.grid()
+    ax2.grid()
+    plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')

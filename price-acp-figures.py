@@ -163,73 +163,21 @@ ts.plot_time_series_pdfs(fprops.fig2_suites, N, times,
                          obs_N, obs_T, obs_stdev, 
                          hist_obs, hist_model, pdf_bins_mid,
                          'figures/fig02.pdf')
-
+if verbose:
+    print('Done.')
 # ---------------------------------------------------------------------
 # FIGURE 3: time series and PDF of surface HIO3 concentration during AO2018
 # plot time series and PDF on same figure with subplots
 if verbose:
     print('\nMaking figure 3..')
-npf_event_marker_y = 8e6
 
-fig = plt.figure(figsize=(16*fprops.cm,3*fprops.cm), dpi=300)
-widths = [4,1]
-spec = fig.add_gridspec(ncols=2, nrows=1,
-                        width_ratios=widths,
-                        hspace=0.4, wspace=0.1)
-ax1 = fig.add_subplot(spec[0])
-# obs
-ax1.plot(obs_hio3_mean_times, obs_hio3_means, color='black', label="Observations (3hr mean)", linewidth=fprops.thick_line)
-# model
-ax1.plot(model_times, colocated_hio3_number, label=fprops.suite_labels['u-cm612'],
-         color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
-# mark NPF events
-for j,event in enumerate(fprops.ao2018_npf_events):
-            ax1.hlines(npf_event_marker_y,event[0],event[1],
-                       linewidth=0.8, color='red', linestyle=(0,(1.8,0.9)))
-            ax1.plot(event[0], npf_event_marker_y, marker='|', ms=2.5, color='red')
-            ax1.plot(event[1], npf_event_marker_y, marker='|', ms=2.5,color='red')
-ax1.set_xlabel('DoY', fontsize=fprops.ax_fs)
-ax1.set_xlim(right=dt.datetime(2018,9,20))
-ax1.set_ylabel('Surface IA conc [cm$^{-3}$]', fontsize=fprops.ax_fs)
-ax1.tick_params(axis='y', which='major', labelsize=fprops.ax_fs)
-ax1.tick_params(axis='y', which='minor', labelsize=fprops.ax_fs)
-ax1.tick_params(axis='y', which='major', pad=1)
-
-ax1.legend(fontsize=fprops.legend_fs)
-ax1.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-
-# use DOY on x axis
-left_lim_date = dt.datetime(2018, 8, 1)
-right_lim_date = dt.datetime(2018, 9, 19)
-ax1.set_xlim(left=left_lim_date, right=right_lim_date)
-left,right = plt.xlim()
-doy_left = left_lim_date.timetuple().tm_yday
-doy_right = right_lim_date.timetuple().tm_yday
-x_axis_array = np.arange(left,right+1)
-doy_array = np.arange(doy_left, doy_right+1)
-ax1.set_xticks(x_axis_array[::3])
-ax1.set_xticklabels(doy_array[::3])
-ax1.tick_params(axis='x', which='major', labelsize=fprops.ax_fs)
-ax1.tick_params(axis='x', which='minor', labelsize=fprops.ax_fs)
-
-ax1.set_title('(a)', loc='left', fontsize=fprops.label_fs, y=1.1)
-
-ax2 = fig.add_subplot(spec[1])
-ax2.plot(hio3_pdf_bins_mid, hio3_hist_obs[1], color='k',
-         label='Observations', linewidth=fprops.thick_line)
-ax2.plot(hio3_pdf_bins_mid, hio3_hist_model[1], label=fprops.suite_labels['u-cm612'],
-         color=fprops.colours['u-cm612'], linewidth=fprops.linewidths['u-cm612'])
-ax2.set_xlabel("Surface IA conc [cm$^{-3}$]", labelpad=12, fontsize=fprops.ax_fs)
-ax2.tick_params(axis='both', which='major', labelsize=fprops.ax_fs)
-ax2.tick_params(axis='both', which='minor', labelsize=fprops.ax_fs)
-ax2.tick_params(axis='y', which='major', pad=1)
-ax2.set_title('Freeze season', fontsize=fprops.label_fs, y=1.1)
-ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs, y=1.1)
-
-ax1.grid()
-ax2.grid()
-filename = "figures/fig03"
-plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')
+ts.plot_IA_time_series_pdf(obs_hio3_means, obs_hio3_mean_times,
+                           colocated_hio3_number, model_times,
+                           hio3_hist_obs[1], hio3_pdf_bins_mid,
+                           hio3_hist_model[1], hio3_pdf_bins_mid,
+                           "figures/fig03")
+if verbose:
+    print('Done.')
 # =====================================================================
 end = dt.datetime.now()
 print('Finished script at {} in {}'.format(end, end-start))
