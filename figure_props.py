@@ -21,6 +21,13 @@ fig4_suites = [
     'u-cj340'
 ]
 
+fig5_suites = [
+    'u-ci572',
+    'u-ch621',
+    'u-ch627',
+    'u-ci364'
+]
+
 # Simulation names for legends
 suite_labels = {
     # CONTROL
@@ -47,7 +54,7 @@ suite_labels = {
     'u-ci364': 'M10_PRSC',
     'u-ci384': 'M10_PRSC_SECORG',
     # IA_BL_M10
-    'u-cp166': 'IA_BL_M10',
+    'u-cp166': 'IA_BL_M10_ALL',
     # M10_BL_70N, 80N, 85N
     'u-cj701': 'M10_BL_75N',
     'u-cj702': 'M10_BL_80N',

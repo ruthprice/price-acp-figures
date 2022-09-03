@@ -11,6 +11,7 @@ from files import save_cube
 import datetime as dt
 from files import get_csv_contents
 import numpy.ma as ma
+import iris.coord_categorisation
 # =====================================================================
 def lognormal_pdf(mean, sigma, arr):
     # returns pdf of specified lognormal dist at points given by arr
@@ -136,6 +137,58 @@ def load_3hr_surface_aerosol_number_conc(model_output_path, suite):
         ncon_cubes[label] = n_conc
     return ncon_cubes
 
+def load_monthly_mean_aerosol_number_conc(model_output_path, suite):
+    '''From model output files of number mixing ratio,
+       calculate number concentration (ie go from number/air molecule
+       -> number/cm3). This is for monthly means only.
+    '''
+    # First get air density
+    p0 = iris.coords.AuxCoord(1000.0,
+                              long_name='reference_pressure',
+                              units='hPa')
+    p0.convert_units('Pa')
+    Rd=287.05 # J/kg/K
+    cp=1005.46 # J/kg/K
+    Rd_cp=Rd/cp
+    R_specific=iris.coords.AuxCoord(287.058,
+                long_name='R_specific',
+                units='J-kilogram^-1-kelvin^-1')#J/(kg K)
+    molar_mass_air=iris.coords.AuxCoord(28.991e-3,
+                long_name='Molar mass of air',
+                units='kilogram-mole^-1')#J/(kg K)
+    avogadro_number=iris.coords.AuxCoord(6.022e23,
+                long_name='Avogadros number - particles per mol',
+                units='mole^-1')#J/(kg K)
+    folder = '{}/{}/All_time_steps/pm_files/'.format(model_output_path,suite)
+    air_pressure = iris.load(glob(folder+'*m01s00i408*'))[0]
+    potential_temperature = iris.load(glob(folder+'*m01s00i004*'))[0]
+    temperature = potential_temperature*(air_pressure/p0)**(Rd_cp)
+    air_density=(air_pressure/(temperature*R_specific))
+    particle_density_of_air = (air_density/molar_mass_air)*avogadro_number
+
+    # Load aerosol data as [# / molecules of air] (number mixing ratio)
+    nmr_stashcodes = [ # model output filenames are based on UM stashcodes
+        'm01s34i101',    # sol nucleation
+        'm01s34i103',    # sol aitken
+        'm01s34i107',    # sol accumulation
+        'm01s34i113',    # sol coarse
+        'm01s34i119'     # insol aitken
+        ]
+    nmr_path = "{}/{}/All_time_steps/pm_files/".format(model_output_path, suite)
+    nmr_cubes_list = [iris.load(glob(nmr_path+'*{}*'.format(stash)))[0] for stash in nmr_stashcodes]
+    ncon_cubes = {}
+    for cube in nmr_cubes_list:
+        label = [mode for mode in constants.modes if "_"+mode in cube.long_name.lower()][0]
+        if cube.shape[1] == 2:
+            cube = cube[:,0]
+        cube.data
+        n_conc = cube*particle_density_of_air
+        n_conc.long_name = "number_concentration_of_{}_mode_aerosol".format(label)
+        n_conc.units = "m-3"
+        n_conc.convert_units('cm-3')
+        ncon_cubes[label] = n_conc
+    return ncon_cubes
+
 def load_3hr_surface_aerosol_mass_conc(model_output_path, suite):
     '''From model output files of mass mixing ratio,
        calculate mass concentration (ie go from mass/mass of air
@@ -164,6 +217,66 @@ def load_3hr_surface_aerosol_mass_conc(model_output_path, suite):
         'particulate_organic_matter_in_soluble_nucleation': 'm01s34i126'
         }
     mmr_path = "{}/{}/All_time_steps/pk_files/".format(model_output_path, suite)
+    mmr_cubes_list = [iris.load(glob(mmr_path+'*{}*'.format(stash)))[0] for stash in mmr_stashcodes]
+    mcon_cubes = {}
+    for cube in mmr_cubes_list:
+        label = [cpt for cpt in mmr_stashcodes.keys() if "_"+cpt in cube.long_name.lower()][0]
+        if cube.shape[1] == 2:
+            cube = cube[:,0]
+        cube.data
+        m_conc = cube*air_density
+        m_conc.units = "kg m-3"
+        m_conc.convert_units('kg cm-3')
+        mcon_cubes[label] = m_conc
+    return mcon_cubes
+
+def load_monthly_mean_aerosol_mass_conc(model_output_path, suite):
+    '''From model output files of mass mixing ratio,
+       calculate mass concentration (ie go from mass/mass of air
+       -> kg/cm3). This is for monthly means only.
+    '''
+    # First get air density
+    p0 = iris.coords.AuxCoord(1000.0,
+                              long_name='reference_pressure',
+                              units='hPa')
+    p0.convert_units('Pa')
+    Rd=287.05 # J/kg/K
+    cp=1005.46 # J/kg/K
+    Rd_cp=Rd/cp
+    R_specific=iris.coords.AuxCoord(287.058,
+                long_name='R_specific',
+                units='J-kilogram^-1-kelvin^-1')#J/(kg K)
+    molar_mass_air=iris.coords.AuxCoord(28.991e-3,
+                long_name='Molar mass of air',
+                units='kilogram-mole^-1')#J/(kg K)
+    avogadro_number=iris.coords.AuxCoord(6.022e23,
+                long_name='Avogadros number - particles per mol',
+                units='mole^-1')#J/(kg K)
+    folder = '{}/{}/All_time_steps/pm_files/'.format(model_output_path,suite)
+    air_pressure = iris.load(glob(folder+'*m01s00i408*'))[0]
+    potential_temperature = iris.load(glob(folder+'*m01s00i004*'))[0]
+    temperature = potential_temperature*(air_pressure/p0)**(Rd_cp)
+    air_density=(air_pressure/(temperature*R_specific))
+
+    # Load aerosol data as [# / molecules of air] (number mixing ratio)
+    mmr_stashcodes = {
+        'sulfuric_acid_in_soluble_nucleation': 'm01s34i102',
+        'sulfuric_acid_in_soluble_aitken': 'm01s34i104',
+        'black_carbon_in_soluble_aitken': 'm01s34i105',
+        'particulate_organic_matter_in_soluble_aitken': 'm01s34i106',
+        'sulfuric_acid_in_soluble_accumulation': 'm01s34i108',
+        'black_carbon_in_soluble_accumulation': 'm01s34i109',
+        'particulate_organic_matter_in_soluble_accumulation': 'm01s34i110',
+        'seasalt_in_soluble_accumulation': 'm01s34i111',
+        'sulfuric_acid_in_soluble_coarse': 'm01s34i114',
+        'black_carbon_in_soluble_coarse': 'm01s34i115',
+        'particulate_organic_matter_in_soluble_coarse': 'm01s34i116',
+        'seasalt_in_soluble_coarse': 'm01s34i117',
+        'black_carbon_in_insoluble_aitken': 'm01s34i120',
+        'particulate_organic_matter_in_insoluble_aitken': 'm01s34i121',
+        'particulate_organic_matter_in_soluble_nucleation': 'm01s34i126'
+        }
+    mmr_path = "{}/{}/All_time_steps/pm_files/".format(model_output_path, suite)
     mmr_cubes_list = [iris.load(glob(mmr_path+'*{}*'.format(stash)))[0] for stash in mmr_stashcodes]
     mcon_cubes = {}
     for cube in mmr_cubes_list:
@@ -215,7 +328,7 @@ def radius_from_number_and_mass_conc(number_conc, mass_conc):
         mode_radius_cubes[mode] = radius
     return mode_radius_cubes
 
-def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None):
+def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None, time_res=None):
     '''
     Function loads saved radius files if they exist
     calculates radius from number and mass if not
@@ -235,9 +348,21 @@ def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None):
         # if some modes need calculating
         # calculate..
         if number_conc==None:
-            number_conc = load_3hr_surface_aerosol_number_conc(model_output_path, suite)
+            if time_res=='3hr':
+                number_conc = load_3hr_surface_aerosol_number_conc(model_output_path, suite)
+            elif time_res=='monthly':
+                mass_conc = load_monthly_mean_aerosol_number_conc(model_output_path, suite)
+            else:
+                print('[get_mode_radius] ERROR: what time resolution number concentration did you want?')
+                sys.exit() # bit dramatic but probably safest
         if mass_conc==None:
-            mass_conc = load_3hr_surface_aerosol_mass_conc(model_output_path, suite)
+            if time_res=='3hr':
+                number_conc = load_3hr_surface_aerosol_mass_conc(model_output_path, suite)
+            elif time_res=='monthly':
+                mass_conc = load_monthly_mean_aerosol_mass_conc(model_output_path, suite)
+            else:
+                print('[get_mode_radius] ERROR: what time resolution mass concentration did you want?')
+                sys.exit() # bit dramatic but probably safest
         radius = radius_from_number_and_mass_conc(number_conc, mass_conc)
         # ..then save
         saving_folder = 'data/processed/'
@@ -299,7 +424,7 @@ def calculate_ao2018_aerosol_conc(model_output_path, suite):
     '''
     # Get the output
     number_conc = load_3hr_surface_aerosol_number_conc(model_output_path, suite)
-    radius = get_mode_radius(model_output_path, suite, number_conc=number_conc)
+    radius = get_mode_radius(model_output_path, suite, number_conc=number_conc, time_res='3hr')
     times = get_cube_times(radius['soluble_nucleation'], ao_drift=True)
     # Do colocation
     colocated_number_conc = {}
@@ -477,3 +602,223 @@ def ao2018_melt_freeze_pdfs(n_pdf_bins, suites, N, Dp_bin_edges, times,
             hist_model[suite][n,0] = np.histogram(model_melt[suite][:,n], density=True, bins=pdf_bins[n])[0]
             hist_model[suite][n,1] = np.histogram(model_freeze[suite][:,n], density=True, bins=pdf_bins[n])[0]
     return hist_obs, hist_model, pdf_bins_mid
+
+def load_ascos_data(ascos_obs_dir):
+    '''
+    Loads the aerosol profiles from each ASCOS helicopter flight
+    along with times, lats, lons, altitudes
+    and mean and median profiles for each flight
+    '''
+    ascos_data_files = glob(ascos_obs_dir+'data_files/*')
+    path_len = len(ascos_obs_dir+'data_files/')
+    flight_numbers = np.array([F[path_len:-4] for F in ascos_data_files])
+
+    flight_data = {}
+    for flight in flight_numbers:
+        flight_data[flight] = {}
+        flight_data_file = "data_files/{}.csv".format(flight)
+        file_contents, nrows, ncols = get_csv_contents(ascos_obs_dir+flight_data_file)
+
+        times = file_contents[2:,0]
+        times = np.array([dt.datetime.strptime(time, "%Y/%m/%d %H:%M:%S") for time in times])
+        flight_data[flight]['times'] = times
+
+        lats = np.array(file_contents[2:,1]).astype(float)
+        lons = np.array(file_contents[2:,2]).astype(float)
+        west_east = np.array(file_contents[2:,3]).astype(float)
+        for i,lon in enumerate(lons):
+            if west_east[i] == 0.:
+                lons[i] = -lon
+        lats = ma.masked_values(lats, -99999.)
+        flight_data[flight]['lats'] = lats
+        lons = ma.masked_values(lons, -99999.)
+        flight_data[flight]['lons'] = lons
+
+        altitude = np.array(file_contents[2:,4]).astype(float)
+        altitude = ma.masked_values(altitude, -99999.)
+        flight_data[flight]['altitude'] = altitude
+
+        ucpc = np.array(file_contents[2:,17]).astype(float)
+        cpc = np.array(file_contents[2:,20]).astype(float)
+        clasp = np.array(file_contents[2:,23]).astype(float)
+        ucpc = ma.masked_values(ucpc, -99999.)
+        cpc = ma.masked_values(cpc, -99999.)
+        clasp = ma.masked_values(clasp, -99999.)
+        flight_data[flight]['ucpc'] = ucpc
+        flight_data[flight]['cpc'] = cpc
+        flight_data[flight]['clasp'] = clasp
+
+        N3_14 = ucpc
+        N14_300 = cpc - N3_14
+        N300 = clasp - N14_300
+        N3_14 = ma.masked_less(N3_14, 0)
+        N3_14 = ma.masked_invalid(N3_14)
+        N14_300 = ma.masked_less(N14_300, 0)
+        N14_300 = ma.masked_invalid(N14_300)
+        N300 = ma.masked_less(N300, 0)
+        N300 = ma.masked_invalid(N300)
+        flight_data[flight]['N3_14'] = N3_14
+        flight_data[flight]['N14_300'] = N14_300
+        flight_data[flight]['N300'] = N300
+    # create mean and median profiles for each flight
+    for f, flight in enumerate(flight_numbers):
+        highest_z = np.ceil(np.amax(flight_data[flight]['altitude']))
+        bin_width = 200
+        top_bin = bin_width * int(np.ceil(highest_z/bin_width))
+
+        z_bins = np.arange(0,top_bin+bin_width,bin_width)
+        z_bin_centres = z_bins[1:] - (bin_width/2)
+        n_z_bins = len(z_bins)
+        N3_14_mean = ma.zeros((n_z_bins-1))
+        N3_14_median = ma.zeros((n_z_bins-1))
+        N14_300_mean = ma.zeros((n_z_bins-1))
+        N14_300_median = ma.zeros((n_z_bins-1))
+        N300_mean = ma.zeros((n_z_bins-1))
+        N300_median = ma.zeros((n_z_bins-1))
+
+        N3_14 = ma.masked_invalid(flight_data[flight]['N3_14'])
+        N14_300 = ma.masked_invalid(flight_data[flight]['N14_300'])
+        N300 = ma.masked_invalid(flight_data[flight]['N300'])
+
+        for z, bin_lower_bound in enumerate(z_bins[:-1]):
+            altitude = flight_data[flight]['altitude']
+            N3_14_binned_values = [x for i,x in enumerate(N3_14) if altitude[i] >= bin_lower_bound and altitude[i] < z_bins[z+1]]
+            N14_300_binned_values = [x for i,x in enumerate(N14_300) if altitude[i] >= bin_lower_bound and altitude[i] < z_bins[z+1]]
+            N300_binned_values = [x for i,x in enumerate(N300) if altitude[i] >= bin_lower_bound and altitude[i] < z_bins[z+1]]
+
+            # mask negatives
+            N3_14_binned_values = ma.masked_less(N3_14_binned_values, 0)
+            N14_300_binned_values = ma.masked_less(N14_300_binned_values, 0)
+            N300_binned_values = ma.masked_less(N300_binned_values, 0)
+            N3_14_binned_values = ma.masked_invalid(N3_14_binned_values)
+            N14_300_binned_values = ma.masked_invalid(N14_300_binned_values)
+            N300_binned_values = ma.masked_invalid(N300_binned_values)
+
+            N3_14_mean[z] = ma.mean(N3_14_binned_values)
+            N3_14_median[z] = ma.median(N3_14_binned_values)
+            N14_300_mean[z] = ma.mean(N14_300_binned_values)
+            N14_300_median[z] = ma.median(N14_300_binned_values)
+            N300_mean[z] = ma.mean(N300_binned_values)
+            N300_median[z] = ma.median(N300_binned_values)
+
+        flight_data[flight]['z_bins'] = z_bins
+        flight_data[flight]['N3_14_mean'] = N3_14_mean
+        flight_data[flight]['N3_14_median'] = N3_14_median
+        flight_data[flight]['N14_300_mean'] = N14_300_mean
+        flight_data[flight]['N14_300_median'] = N14_300_median
+        flight_data[flight]['N300_mean'] = N300_mean
+        flight_data[flight]['N300_median'] = N300_median
+
+    return flight_data
+
+def calculate_ascos_aerosol_conc(model_output_path, suite, ascos_flight_data):
+    '''
+    Get aerosol for ASCOS size ranges,
+    colocated with ASCOS helicopter.
+    Returns np arrays with concentrations in different sizes
+    and model heights
+    '''
+    # Get the output
+    number_conc = load_monthly_mean_aerosol_number_conc(model_output_path, suite)
+    radius = get_mode_radius(model_output_path, suite, number_conc=number_conc, time_res='monthly')
+    number_conc_aug = {}
+    radius_aug = {}
+    # Extract August 2018
+    for mode in number_conc:
+        N = number_conc[mode]
+        R = radius[mode]
+        try:
+            iris.coord_categorisation.add_month(N, 'time', name='month')
+            iris.coord_categorisation.add_year(N, 'time', name='year')
+        except ValueError:
+            pass
+        N = N.extract(iris.Constraint(month='Aug'))
+        N = N.extract(iris.Constraint(year=2018))
+        number_conc_aug[mode] = N
+        try:
+            iris.coord_categorisation.add_month(R, 'time', name='month')
+            iris.coord_categorisation.add_year(R, 'time', name='year')
+        except ValueError:
+            pass
+        R = R.extract(iris.Constraint(month='Aug'))
+        R = R.extract(iris.Constraint(year=2018))
+        radius_aug[mode] = R
+    time_coord = number_conc_aug['soluble_nucleation'].coord('time')
+    model_timesteps = time_coord.units.num2date(time_coord.points)
+    model_time_bounds = time_coord.units.num2date(time_coord.bounds)
+    lat_coord = number_conc_aug['soluble_nucleation'].coord('latitude')
+    lon_coord = number_conc_aug['soluble_nucleation'].coord('longitude')
+    if not lat_coord.has_bounds():
+        lat_coord.guess_bounds()
+    if not lon_coord.has_bounds():
+        lon_coord.guess_bounds()
+    model_lats = np.unique(lat_coord.bounds.flatten())
+    model_lons = np.unique(lon_coord.bounds.flatten())
+    model_flight_coords = []
+    for f,flight in enumerate(ascos_flight_data):
+        lats = ascos_flight_data[flight]['lats']
+        lons = ascos_flight_data[flight]['lons']
+        for i in np.arange(len(lats)):
+            lat = lats[i]
+            lon = lons[i]
+            if lon < 0:
+                lon += 360
+            i_model_lon = [x for x,model_lon in enumerate(model_lons[:-1]) if lon >= model_lon and lon < model_lons[x+1]]
+            i_model_lat = [y for y,model_lat in enumerate(model_lats[:-1]) if lat >= model_lat and lat < model_lats[y+1]]
+            if len(i_model_lon) > 1 or len(i_model_lat) > 1:
+                print("\n[calculate_ascos_aerosol_conc] ERROR: location of model gridbox didn't work")
+                sys.exit()
+            if len(i_model_lon) == 1 and len(i_model_lat) == 1:
+                model_flight_coords.append([i_model_lon[0],i_model_lat[0]])
+    model_flight_coords = np.unique(model_flight_coords, axis=0)
+    number_conc_coloc = {}
+    radius_coloc = {}
+    for mode in number_conc_aug:
+        number_conc_coloc[mode] = []
+        radius_coloc[mode] = []
+        for coord in model_flight_coords:
+            N_cube = number_conc_aug[mode][:,coord[1],coord[0]]
+            R_cube = radius_aug[mode][:,coord[1],coord[0]]
+            number_conc_coloc[mode].append(N_cube.data)
+            radius_coloc[mode].append(R_cube.data)
+        number_conc_coloc[mode] = np.array(number_conc_coloc[mode])
+        radius_coloc[mode] = np.array(radius_coloc[mode])
+    # calculate total number in size ranges from model data
+    first_bound = 1    #[nm]
+    last_bound = 1e3
+    model_n_bins = 500
+    model_bins = np.logspace(np.log(first_bound),np.log(last_bound),num=model_n_bins,base=np.exp(1))
+    model_bin_bounds = calc_bin_boundaries(model_bins)
+    model_dlogD = np.log10(model_bin_bounds[1:]) - np.log10(model_bin_bounds[:-1])
+
+    size_bins = [3,14,300]
+    n_size_bins = len(size_bins) - 1
+
+    model_size_limit_inds = []
+    for n in size_bins:
+        loc = np.nonzero(model_bin_bounds < n)[0][-1]
+        model_size_limit_inds.append(loc + 1)
+
+    n_levels = 27
+    n_coords = len(model_flight_coords)
+    model_N = np.zeros((n_size_bins, n_levels))
+    dist = np.zeros((model_n_bins, n_levels, n_coords))
+    dist_area_mean = np.zeros((model_n_bins, n_levels))
+
+    for m,mode in enumerate(number_conc_coloc):
+        N = number_conc_coloc[mode]
+        D = radius_coloc[mode]*2
+        for z in np.arange(n_levels):
+            for i in np.arange(n_coords):
+                pdf = lognormal_pdf(np.log(D[i][z]*1e09), np.log(constants.mode_sig[mode]), model_bins)
+                dist[:,z,i] += pdf * N[i][z]
+    for z in np.arange(n_levels):
+        dist_area_mean[:,z] = np.mean(dist[:,z],axis=1)
+
+    for d in np.arange(n_size_bins):
+        for z in np.arange(n_levels):
+            i1 = model_size_limit_inds[d]
+            i2 = model_size_limit_inds[d+1]
+            model_N[d,z] = ma.sum(model_dlogD[i1:i2] * dist_area_mean[i1:i2,z])
+    heights = number_conc_aug['soluble_nucleation'].coord('atmosphere_hybrid_height_coordinate').points[:n_levels]/1000
+    return model_N, heights
