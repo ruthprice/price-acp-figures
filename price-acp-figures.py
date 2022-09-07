@@ -210,6 +210,30 @@ if verbose:
 # load observations
 ascos_obs_dir = "/home/users/eersp/ascos_flights/"
 ascos_flight_data = aero.load_ascos_data(ascos_obs_dir)
+zmax = np.amax([ascos_flight_data[flight]['z_bins'][-1] for flight in ascos_flight_data])
+bin_width = 200
+top_bin = bin_width * int(np.ceil(zmax/bin_width))
+z_bins = np.arange(0,top_bin+bin_width,bin_width)
+z_bin_centres = z_bins[1:] - (bin_width/2)
+n_z_bins = len(z_bins)
+ascos_N3_14_mean = ma.zeros((n_z_bins))
+ascos_N14_300_mean = ma.zeros((n_z_bins))
+ascos_N3_14_median = ma.zeros((n_z_bins))
+ascos_N14_300_median = ma.zeros((n_z_bins))
+
+for z, bin_lower_bound in enumerate(z_bins[:-1]):
+    ascos_N3_14_binned = []
+    ascos_N14_300_binned = []
+    for flight in ascos_flight_data:
+        flight_z = ma.masked_invalid(ascos_flight_data[flight]['altitude'])
+        N3_14 = ma.masked_invalid(ascos_flight_data[flight]['N3_14'])
+        N14_300 = ma.masked_invalid(ascos_flight_data[flight]['N14_300'])
+        ascos_N3_14_binned.extend([x for i,x in enumerate(N3_14) if flight_z[i] >= bin_lower_bound and flight_z[i] < z_bins[z+1]])
+        ascos_N14_300_binned.extend([x for i,x in enumerate(N14_300) if flight_z[i] >= bin_lower_bound and flight_z[i] < z_bins[z+1]])
+    ascos_N3_14_mean[z] = ma.mean(ma.array(ascos_N3_14_binned))
+    ascos_N14_300_mean[z] = ma.mean(ma.array(ascos_N14_300_binned))
+    ascos_N3_14_median[z] = ma.median(ma.array(ascos_N3_14_binned))
+    ascos_N14_300_median[z] = ma.median(ma.array(ascos_N14_300_binned))
 
 # ---------------------------------------------------------------------
 # LOAD MODEL OUTPUT FOR FIG 5
@@ -217,12 +241,11 @@ if verbose:
     print('\nLoading output for fig 5..')
 model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
 
+model_N = {}
 for s,suite in enumerate(fprops.fig5_suites):
     if verbose:
         print(suite)
-    model_N, heights = aero.calculate_ascos_aerosol_conc(model_output_path, suite, ascos_flight_data)
-print(heights)
-print(model_N.shape)
+    model_N[suite], heights = aero.calculate_ascos_aerosol_conc(model_output_path, suite, ascos_flight_data)
 # ---------------------------------------------------------------------
 # PLOTTING
 # ---------------------------------------------------------------------
@@ -278,6 +301,76 @@ print(model_N.shape)
 
 # ---------------------------------------------------------------------
 # FIGURE 5: ASCOS profiles
+fig = plt.figure(figsize=(16*fprops.cm,6*fprops.cm), dpi=300)
+gs = fig.add_gridspec(ncols=2, nrows=1, wspace=0.1)
+
+# 3-14 nm
+ax1 = fig.add_subplot(gs[0])
+for f,flight in enumerate(ascos_flight_data):
+    ax1.plot(ascos_flight_data[flight]['N3_14_mean'],
+             ascos_flight_data[flight]['z_bins'][:-1]/1000,
+             zorder=1, alpha=0.4, color='grey', linewidth=fprops.thick_line)
+ax1.plot(ascos_N3_14_mean[:-1], z_bins[:-1]/1000, color='k',
+         label='ASCOS mean', zorder=2, linewidth=fprops.thick_line)
+ax1.plot(ascos_N3_14_median[:-1], z_bins[:-1]/1000, color='k',
+         linestyle='dashed', label='ASCOS median', zorder=2, linewidth=fprops.thick_line)
+for s,suite in enumerate(fprops.fig5_suites):
+    N = model_N[suite][0]
+    colour = fprops.colours[suite]
+    linewidth = fprops.linewidths[suite]
+    ax1.plot(N, heights, label=fprops.suite_labels[suite],
+             zorder=4, color=colour, linewidth=linewidth)
+
+ax1.grid()
+ax1.set_xscale('log')
+ax1.set_ylim(0,5)
+ax1.set_xlim(1e-2,1e4)
+ax1.set_title('3\u201314 nm', fontsize=fprops.label_fs)
+ax1.set_title('(a)', loc='left', fontsize=fprops.label_fs)
+ax1.set_ylabel('Altitude [km]', fontsize=fprops.label_fs)
+ax1.set_xlabel('Particle concentration [cm$^{-3}$]', fontsize=fprops.ax_label_fs)
+ax1.tick_params(axis='x', labelsize=fprops.ax_fs)
+ax1.tick_params(axis='y', labelsize=fprops.ax_fs)
+
+# 14-300 nm
+ax2 = fig.add_subplot(gs[1])
+for f,flight in enumerate(ascos_flight_data):
+    if f == 0 :
+        ax2.plot(ascos_flight_data[flight]['N14_300_mean'],ascos_flight_data[flight]['z_bins'][:-1]/1000,
+                 zorder=1, alpha=0.4, color='grey', linewidth=fprops.thick_line,
+                 label='Flight means')
+    else:
+        ax2.plot(ascos_flight_data[flight]['N14_300_mean'],ascos_flight_data[flight]['z_bins'][:-1]/1000,
+                 zorder=1, alpha=0.4, color='grey', linewidth=fprops.thick_line)
+ax2.plot(ascos_N14_300_mean[:-1], z_bins[:-1]/1000, color='k',
+         label='ASCOS mean', zorder=2, linewidth=fprops.thick_line)
+ax2.plot(ascos_N14_300_median[:-1], z_bins[:-1]/1000, color='k',
+         linestyle='dashed', label='ASCOS median', zorder=2, linewidth=fprops.thick_line)
+for s,suite in enumerate(fprops.fig5_suites):
+    N = model_N[suite][1]
+    colour = fprops.colours[suite]
+    linewidth = fprops.linewidths[suite]
+    ax2.plot(N, heights, label=fprops.suite_labels[suite],
+             zorder=4, color=colour,
+             linewidth=linewidth)
+ax2.grid()
+ax2.set_xscale('log')
+ax2.set_ylim(0,5)
+ax2.set_xlim(1e-2,1e4)
+ax2.set_title('14\u2013300 nm', fontsize=fprops.label_fs)
+ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs)
+ax2.set_xlabel('Particle concentration [cm$^{-3}$]', fontsize=fprops.ax_label_fs)
+ax2.tick_params(axis='x', labelsize=fprops.ax_fs)
+ax2.tick_params(axis='y', labelsize=fprops.ax_fs)
+
+plt.legend(fontsize=fprops.legend_fs, ncol=2,
+           columnspacing=1, borderpad=0.2,
+           handletextpad=0.3, labelspacing=0.5,
+           handlelength=1.5, loc='upper center')
+filename = 'figures/fig05.pdf'
+plt.savefig(filename, bbox_inches="tight", facecolor='white', format='pdf')
+if verbose:
+    print('Done')
 
 # =====================================================================
 end = dt.datetime.now()
