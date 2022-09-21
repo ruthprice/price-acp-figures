@@ -281,8 +281,6 @@ def load_monthly_mean_aerosol_mass_conc(model_output_path, suite):
     mcon_cubes = {}
     for cube in mmr_cubes_list:
         label = [cpt for cpt in mmr_stashcodes.keys() if "_"+cpt in cube.long_name.lower()][0]
-        if cube.shape[1] == 2:
-            cube = cube[:,0]
         cube.data
         m_conc = cube*air_density
         m_conc.units = "kg m-3"
@@ -340,7 +338,10 @@ def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None, 
     for mode in constants.modes:
         file = glob('{}*{}*radius*{}*'.format(radius_folder, suite, '_'+mode))
         if len(file) == 1:
-            radius_files.append(file[0])
+            if time_res == '3hr':
+                radius_files.append(file[0])
+            else:
+                calculate_modes.append(mode)
         else:
             calculate_modes.append(mode)
 
@@ -351,13 +352,13 @@ def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None, 
             if time_res=='3hr':
                 number_conc = load_3hr_surface_aerosol_number_conc(model_output_path, suite)
             elif time_res=='monthly':
-                mass_conc = load_monthly_mean_aerosol_number_conc(model_output_path, suite)
+                number_conc = load_monthly_mean_aerosol_number_conc(model_output_path, suite)
             else:
                 print('[get_mode_radius] ERROR: what time resolution number concentration did you want?')
                 sys.exit() # bit dramatic but probably safest
         if mass_conc==None:
             if time_res=='3hr':
-                number_conc = load_3hr_surface_aerosol_mass_conc(model_output_path, suite)
+                mass_conc = load_3hr_surface_aerosol_mass_conc(model_output_path, suite)
             elif time_res=='monthly':
                 mass_conc = load_monthly_mean_aerosol_mass_conc(model_output_path, suite)
             else:
@@ -822,3 +823,100 @@ def calculate_ascos_aerosol_conc(model_output_path, suite, ascos_flight_data):
             model_N[d,z] = ma.sum(model_dlogD[i1:i2] * dist_area_mean[i1:i2,z])
     heights = number_conc_aug['soluble_nucleation'].coord('atmosphere_hybrid_height_coordinate').points[:n_levels]/1000
     return model_N, heights
+
+def read_atom_sd_aerosol_files(data_filenames):
+    # for a list of SDAerosol files
+    # returns all timestamps, dN/dlogD values and diameter bins
+    # as given in file. NB T has shape of n_time;
+    # Dp has shape of (n_files, n_bins);
+    # N has (n_time, n_bins).
+
+    n_files = len(data_filenames)
+    # define empty lists used for collecting data from multiple files
+    atom_aero_T, atom_dNdlogD, atom_Dp = {}, {}, {}
+    for n,filename in enumerate(data_filenames):
+        with open(filename, 'r') as file_reader:
+            lines = file_reader.readlines()
+        for j,line in enumerate(lines):
+            # .ict files have metadata at top of file
+            # locate the start of the data
+            if line.split(",")[0] == "Time_UTC_AMP":   
+                headers_row_index = j
+            
+        n_rows = len(lines[headers_row_index:])    #NB includes headers
+        # save useful stuff from metadata
+        columns_metadata = np.array(lines[12:79])
+        # locate columns containing number concentration data
+        # and get their diameters
+        dNdlogD_cols = []
+        bin_diameters = []
+        for j,line in enumerate(columns_metadata):
+            if "number_size_distribution_of_dry_particles_in_air_per_dlog10Dp" in line:
+                dNdlogD_cols.append(j+1)        # +1 accounts for time being column 0
+                # locate bin size within the line:
+                first_ind = line.find("diameter_at_") + len("diameter_at_")
+                last_ind = line.find("nm_")
+                bin_diam =  float(line[first_ind:last_ind])
+                bin_diameters.append(bin_diam)
+    
+        n_bins = len(bin_diameters)
+        fill_values = np.array(lines[11].split(",")).astype(float)
+    
+        # save flight date from filename
+        fmt = '%Y%m%d'
+        flight_date = filename[-15:-7]
+        flight_date_dt = dt.datetime.strptime(flight_date, fmt)
+        # save data
+        time = np.zeros((n_rows-1))
+        dNdlogD = np.zeros((n_rows-1,n_bins))
+
+        for j, line in enumerate(lines[headers_row_index+1:]):
+            time[j] = float(line.split(",")[0])
+            dNdlogD[j] = np.array(line.split(","))[dNdlogD_cols].astype(float)
+        # create data mask
+        mask = np.zeros((n_rows-1,n_bins))
+        for j,fill_value in enumerate(fill_values):
+            masked_values = np.where(dNdlogD[:,j] == fill_value)
+            mask[masked_values,j] = 1
+        dNdlogD = ma.array(dNdlogD,mask=mask,dtype=float)
+                
+        atom_aero_T[flight_date] = np.array([flight_date_dt + dt.timedelta(seconds=T) for T in time])
+        atom_dNdlogD[flight_date] = ma.array(dNdlogD)
+        atom_Dp[flight_date] = np.array(bin_diameters)
+
+    return atom_aero_T, atom_dNdlogD, atom_Dp
+
+def read_atom_nav_file(file_path):
+    filename = file_path + "ATom1_flight_tracks.csv"
+    file_contents, n_rows, n_cols = get_csv_contents(filename)
+    # use datetime to convert date string
+    # and add on number of seconds for start and end of interval
+    fmt = '%Y%m%d'
+    ts_date = np.array([dt.datetime.strptime(T, fmt) for T in file_contents[14:,2]])
+    ts_start = np.array([ts_date[t] + dt.timedelta(seconds=float(T)) for t,T in enumerate(file_contents[14:,3])])
+    ts_end = np.array([ts_date[t] + dt.timedelta(seconds=float(T)) for t,T in enumerate(file_contents[14:,4])])
+    lat = np.array(file_contents[14:,5].astype(float))
+    lon = np.array(file_contents[14:,6].astype(float))
+    alt = np.array(file_contents[14:,7].astype(float))
+    P = np.array(file_contents[14:,8])
+    T = np.array(file_contents[14:,9])
+    
+    return ts_start, ts_end, lat, lon, alt, P, T
+
+def calculate_STP_factor(model_output_path, suite):
+    monthly_mean_path = model_output_path + suite + "/All_time_steps/pm_files/"
+    temp_file = glob('{}*{}*'.format(monthly_mean_path, 'm01s00i004'))
+    pres_file = glob('{}*{}*'.format(monthly_mean_path, 'm01s00i408'))
+    if temp_file and pres_file: 
+        pot_temp_cube = iris.load(temp_file)[0]
+        pressure_cube = iris.load(pres_file)[0]
+        temperature = pot_temp_cube*(pressure_cube/constants.p0)**(constants.Rd_cp)
+        air_density=(pressure_cube/(temperature*constants.R_specific))
+        air_density._var_name='air_density'
+        air_density.long_name='Density of air'
+        # get conversion factor to go from ambient -> STP
+        STP_factor = ((1.013e5/(293*287.058))) / air_density.data
+        return STP_factor
+    else:
+        print("ERROR: can't find the right temperature output")
+        return None
