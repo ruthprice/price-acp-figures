@@ -56,149 +56,152 @@ verbose = True
 # PRE-PROCESSING
 # ---------------------------------------------------------------------
 
-# # ---------------------------------------------------------------------
-# # LOAD MODEL DATA FOR FIGURE 2
-# model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
-# N = {}
-# bin_edges = {}
-# times = {}
-# for suite in fprops.fig2_suites:
-#     if verbose:
-#         print('\nLoading output from {}..'.format(suite))
-#     N[suite], bin_edges[suite], times[suite] = aero.get_ao2018_aerosol_conc(model_output_path, suite)
+# ---------------------------------------------------------------------
+# LOAD MODEL DATA FOR FIGURE 2
+model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
+N = {}
+bin_edges = {}
+times = {}
+for suite in fprops.fig2_suites:
+    if verbose:
+        print('\nLoading output from {}..'.format(suite))
+    N[suite], bin_edges[suite], times[suite] = aero.get_ao2018_aerosol_conc(model_output_path, suite)
 
-# # ---------------------------------------------------------------------
-# # LOAD MEASUREMENTS FOR FIGURE 2
-# if verbose:
-#     print('\nLoading observations..')
-# # Load CPC and DMPS observations
-# # get AB's ultrafine particle concentration
-# ao2018_data_file_dir = "/home/users/eersp/ao2018_observations/"
-# ufp_data_in = ao2018_data_file_dir + "ao2018-aerosol-ufp.csv"
-# if verbose:
-#     print('\nTaking running mean of UFP data..')
-# # take running mean of CPC dataset
-# ufp_running_means, ufp_std_devs, ufp_running_mean_times = aero.running_mean(*aero.load_ao2018_ufp(ufp_data_in), 3, 1)
+# ---------------------------------------------------------------------
+# LOAD MEASUREMENTS FOR FIGURE 2 and 7
+if verbose:
+    print('\nLoading observations..')
+# Load CPC and DMPS observations
+# get AB's ultrafine particle concentration
+ao2018_data_file_dir = "/home/users/eersp/ao2018_observations/"
+ufp_data_in = ao2018_data_file_dir + "ao2018-aerosol-ufp.csv"
+if verbose:
+    print('\nTaking running mean of UFP data..')
+# take running mean of CPC dataset
+ufp_running_means, ufp_std_devs, ufp_running_mean_times = aero.running_mean(*aero.load_ao2018_ufp(ufp_data_in), 3, 1)
 
-# # get DMPS dN/dlogD
-# # dmps_data_in = ao2018_data_file_dir + "ao2018-aerosol-dmps.csv"
-# dmps_data_in = ao2018_data_file_dir + 'DMPS_for_Ruth.csv' # with pollution flag
-# dmps_dNdlogD, dmps_diam_mid, dmps_times = aero.load_ao2018_dmps(dmps_data_in)
-# # integrate DMPS dN/dlogD
-# dmps_N = aero.total_number_from_dN(dmps_dNdlogD, dmps_diam_mid, [15,100,500])
+# get DMPS dN/dlogD
+# dmps_data_in = ao2018_data_file_dir + "ao2018-aerosol-dmps.csv"
+dmps_data_in = ao2018_data_file_dir + 'DMPS_for_Ruth.csv' # with pollution flag
+dmps_dNdlogD, dmps_diam_mid, dmps_times = aero.load_ao2018_dmps(dmps_data_in)
+# integrate DMPS dN/dlogD
+if verbose:
+    print('\nloading DMPS for time series..')
+dmps_N = aero.total_number_from_dN(dmps_dNdlogD, dmps_diam_mid, [15,100,500], base='10')
 
-# if verbose:
-#     print('\nTaking running mean of DMPS data..')
-# # take running mean of DMPS datasets
-# dmps_N15_100_running_means, dmps_N15_100_std_devs, dmps_running_mean_times = aero.running_mean(dmps_N[:,0], dmps_times, 3, 1)
-# dmps_N100_500_running_means, dmps_N100_500_std_devs, dmps_running_mean_times = aero.running_mean(dmps_N[:,1], dmps_times, 3, 1)
+if verbose:
+    print('\nTaking running mean of DMPS data..')
+# take running mean of DMPS datasets
+dmps_N15_100_running_means, dmps_N15_100_std_devs, dmps_running_mean_times = aero.running_mean(dmps_N[:,0], dmps_times, 3, 1)
+dmps_N100_500_running_means, dmps_N100_500_std_devs, dmps_running_mean_times = aero.running_mean(dmps_N[:,1], dmps_times, 3, 1)
 
 
-# if verbose:
-#     print('\nMaking PDFs..')
-# n_pdf_bins = 25
-# hist_obs, hist_model, pdf_bins_mid = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig2_suites, N, bin_edges, times)
+if verbose:
+    print('\nMaking PDFs..')
+n_pdf_bins = 25
+hist_obs, hist_model, pdf_bins = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig2_suites, N, bin_edges, times)
+pdf_bins_mid = [0.5*(X[1:] + X[:-1]) for X in pdf_bins]
 
-# # ---------------------------------------------------------------------
-# # LOAD HIO3 MEASUREMENTS FOR FIGURE 3
-# # Load observations and Baccarini model data
-# if verbose:
-#     print('\nLoading HIO3..')
-# hio3_path = "/home/users/eersp/ao2018_observations/"
-# hio3_file = "ao2018-aerosol-cims.csv"
-# hio3_file_contents, n_rows, n_cols = files.get_csv_contents(hio3_path + hio3_file)
-# obs_hio3_n_time = n_rows - 1    # -1 bc there is a header
-# fmt = '%Y-%m-%d %H:%M:%S'
-# obs_hio3_times = np.array([dt.datetime.strptime(str(T),fmt) for T in hio3_file_contents[1:,0]])
-# obs_hio3 = hio3_file_contents[1:,2].astype(float)
+# ---------------------------------------------------------------------
+# LOAD HIO3 MEASUREMENTS FOR FIGURE 3
+# Load observations and Baccarini model data
+if verbose:
+    print('\nLoading HIO3..')
+hio3_path = "/home/users/eersp/ao2018_observations/"
+hio3_file = "ao2018-aerosol-cims.csv"
+hio3_file_contents, n_rows, n_cols = files.get_csv_contents(hio3_path + hio3_file)
+obs_hio3_n_time = n_rows - 1    # -1 bc there is a header
+fmt = '%Y-%m-%d %H:%M:%S'
+obs_hio3_times = np.array([dt.datetime.strptime(str(T),fmt) for T in hio3_file_contents[1:,0]])
+obs_hio3 = hio3_file_contents[1:,2].astype(float)
 
-# obs_hio3_means, obs_hio3_stdev, obs_hio3_mean_times = aero.running_mean(obs_hio3, obs_hio3_times, 3, 1)
+obs_hio3_means, obs_hio3_stdev, obs_hio3_mean_times = aero.running_mean(obs_hio3, obs_hio3_times, 3, 1)
 
-# # ---------------------------------------------------------------------
-# # LOAD MODEL OUTPUT FOR FIGURE 3
-# model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/u-cm612/All_time_steps/pk_files/'
-# hio3_stashcode = "m01s34i064"
-# hio3_file = glob(model_output_path+'*'+hio3_stashcode+'*')
-# if verbose:
-#     print(hio3_file)
-# model_hio3 = iris.load(hio3_file)[0]
-# model_hio3.data
-# if verbose:
-#     print(model_hio3)
-# air_density = 1.33 # kg m-3
-# model_hio3 = model_hio3 * air_density
-# colocated_hio3 = cr.colocate_with_ao2018_drift(model_hio3, constants.model_res)
-# colocated_hio3_number = iris.cube.CubeList([])
-# for t,cube in enumerate(colocated_hio3):
-#     cube.long_name = "mass_concentration_of_hio3"
-#     number_conc = cube * constants.avo / constants.mm_hio3
-#     number_conc.units = "m-3"
-#     number_conc.convert_units('cm-3')
-#     colocated_hio3_number.append(number_conc.data)
-# model_times = aero.get_cube_times(model_hio3, ao_drift=True)
-# colocated_hio3_number = np.array(colocated_hio3_number)
+# ---------------------------------------------------------------------
+# LOAD MODEL OUTPUT FOR FIGURE 3
+model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/u-cm612/All_time_steps/pk_files/'
+hio3_stashcode = "m01s34i064"
+hio3_file = glob(model_output_path+'*'+hio3_stashcode+'*')
+if verbose:
+    print(hio3_file)
+model_hio3 = iris.load(hio3_file)[0]
+model_hio3.data
+if verbose:
+    print(model_hio3)
+air_density = 1.33 # kg m-3
+model_hio3 = model_hio3 * air_density
+colocated_hio3 = cr.colocate_with_ao2018_drift(model_hio3, constants.model_res)
+colocated_hio3_number = iris.cube.CubeList([])
+for t,cube in enumerate(colocated_hio3):
+    cube.long_name = "mass_concentration_of_hio3"
+    number_conc = cube * constants.avo / constants.mm_hio3
+    number_conc.units = "m-3"
+    number_conc.convert_units('cm-3')
+    colocated_hio3_number.append(number_conc.data)
+model_times = aero.get_cube_times(model_hio3, ao_drift=True)
+colocated_hio3_number = np.array(colocated_hio3_number)
 
-# if verbose:
-#     print('\nMaking HIO3 PDFs..')
-# n_hio3_pdf_bins = 20
+if verbose:
+    print('\nMaking HIO3 PDFs..')
+n_hio3_pdf_bins = 20
 
-# freeze_up = dt.datetime(2018,8,27)
-# hio3_melt_times, hio3_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, obs_hio3_mean_times)
-# model_melt_times, model_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, model_times)
+freeze_up = dt.datetime(2018,8,27)
+hio3_melt_times, hio3_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, obs_hio3_mean_times)
+model_melt_times, model_freeze_times = cr.ao2018_melt_freeze_times(freeze_up, model_times)
 
-# # define bins
-# max_hio3 = ma.amax(obs_hio3_means)
-# hio3_pdf_bins = np.linspace(0, max_hio3, n_hio3_pdf_bins+1)
-# hio3_pdf_bins_mid = 0.5*(hio3_pdf_bins[1:] + hio3_pdf_bins[:-1])
+# define bins
+max_hio3 = ma.amax(obs_hio3_means)
+hio3_pdf_bins = np.linspace(0, max_hio3, n_hio3_pdf_bins+1)
+hio3_pdf_bins_mid = 0.5*(hio3_pdf_bins[1:] + hio3_pdf_bins[:-1])
 
-# hio3_hist_obs = np.zeros((2, n_hio3_pdf_bins))
-# hio3_hist_obs[0] = np.histogram(obs_hio3_means[hio3_melt_times], density=True, bins=hio3_pdf_bins)[0]
-# hio3_hist_obs[1] = np.histogram(obs_hio3_means[hio3_freeze_times], density=True, bins=hio3_pdf_bins)[0]
-# hio3_hist_model = np.zeros((2, n_hio3_pdf_bins))
-# hio3_hist_model[0] = np.histogram(colocated_hio3_number[model_melt_times], density=True, bins=hio3_pdf_bins)[0]
-# hio3_hist_model[1] = np.histogram(colocated_hio3_number[model_freeze_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_obs = np.zeros((2, n_hio3_pdf_bins))
+hio3_hist_obs[0] = np.histogram(obs_hio3_means[hio3_melt_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_obs[1] = np.histogram(obs_hio3_means[hio3_freeze_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_model = np.zeros((2, n_hio3_pdf_bins))
+hio3_hist_model[0] = np.histogram(colocated_hio3_number[model_melt_times], density=True, bins=hio3_pdf_bins)[0]
+hio3_hist_model[1] = np.histogram(colocated_hio3_number[model_freeze_times], density=True, bins=hio3_pdf_bins)[0]
 
-# # ---------------------------------------------------------------------
-# # LOAD MODEL OUTPUT FOR FIG 4
-# if verbose:
-#     print('\nLoading output for fig 4..')
-# model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
-# nuc_stash = 'm01s34i101'
-# sol_nuc_N = {}
-# zbl = {}
-# for s,suite in enumerate(fprops.fig4_suites):
-#     density_file = "{}{}/L1/daily_3d/L1_air_density_Density_of_air.nc".format(model_output_path,suite)
-#     air_density = iris.load(density_file)[0]
-#     particle_density_of_air = (air_density/constants.mm_air)*constants.avo
-#     try:
-#         iris.coord_categorisation.add_day_of_year(particle_density_of_air, 'time', name='day_of_year')
-#         iris.coord_categorisation.add_year(particle_density_of_air, 'time', name='year')
-#     except ValueError:
-#         # ValueError raised if coord already exists
-#         # don't know if anything else would trigger it so be careful
-#         pass
-#     nuc_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,nuc_stash))
-#     nuc_per_air_mol = iris.load(nuc_file)[0]
-#     nuc_per_air_mol.data
-#     if verbose:
-#         print(nuc_per_air_mol)
-#     n_conc = nuc_per_air_mol*particle_density_of_air
-#     n_conc.long_name = "number_concentration_of_soluble_nucleation_mode_aerosol"
-#     n_conc.units = "m-3"
-#     n_conc.convert_units('cm-3')
-#     n_conc_coloc = cr.colocate_with_ao2018_drift(n_conc, constants.model_res)
-#     sol_nuc_N[suite] = np.array([cube.data for cube in n_conc_coloc])
-#     fig4_times = aero.get_cube_times(n_conc, ao_drift=True)
-#     fig4_heights = n_conc.coord('level_height').points/1000
+# ---------------------------------------------------------------------
+# LOAD MODEL OUTPUT FOR FIG 4
+if verbose:
+    print('\nLoading output for fig 4..')
+model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
+nuc_stash = 'm01s34i101'
+sol_nuc_N = {}
+zbl = {}
+for s,suite in enumerate(fprops.fig4_suites):
+    density_file = "{}{}/L1/daily_3d/L1_air_density_Density_of_air.nc".format(model_output_path,suite)
+    air_density = iris.load(density_file)[0]
+    particle_density_of_air = (air_density/constants.mm_air)*constants.avo
+    try:
+        iris.coord_categorisation.add_day_of_year(particle_density_of_air, 'time', name='day_of_year')
+        iris.coord_categorisation.add_year(particle_density_of_air, 'time', name='year')
+    except ValueError:
+        # ValueError raised if coord already exists
+        # don't know if anything else would trigger it so be careful
+        pass
+    nuc_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,nuc_stash))
+    nuc_per_air_mol = iris.load(nuc_file)[0]
+    nuc_per_air_mol.data
+    if verbose:
+        print(nuc_per_air_mol)
+    n_conc = nuc_per_air_mol*particle_density_of_air
+    n_conc.long_name = "number_concentration_of_soluble_nucleation_mode_aerosol"
+    n_conc.units = "m-3"
+    n_conc.convert_units('cm-3')
+    n_conc_coloc = cr.colocate_with_ao2018_drift(n_conc, constants.model_res)
+    sol_nuc_N[suite] = np.array([cube.data for cube in n_conc_coloc])
+    fig4_times = aero.get_cube_times(n_conc, ao_drift=True)
+    fig4_heights = n_conc.coord('level_height').points/1000
 
-#     zbl_stash = 'm01s00i025'
-#     zbl_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,zbl_stash))
-#     z = iris.load(zbl_file)[0]
-#     z.data
-#     if verbose:
-#         print(z)
-#     zbl_coloc = cr.colocate_with_ao2018_drift(z, constants.model_res)
-#     zbl[suite] = np.array([cube.data for cube in zbl_coloc])
+    zbl_stash = 'm01s00i025'
+    zbl_file = glob('{}{}/All_time_steps/pl_files/*{}*'.format(model_output_path,suite,zbl_stash))
+    z = iris.load(zbl_file)[0]
+    z.data
+    if verbose:
+        print(z)
+    zbl_coloc = cr.colocate_with_ao2018_drift(z, constants.model_res)
+    zbl[suite] = np.array([cube.data for cube in zbl_coloc])
 
 # ---------------------------------------------------------------------
 # LOAD DATA FOR FIGURE 5
@@ -307,13 +310,17 @@ for i_aero_file, f in enumerate(atom_aero_T):
             i_aero_high_lats[f].append(i_aero)
     i_aero_high_lats[f] = np.array(i_aero_high_lats[f]).astype(int)
 # Sum over size distribution to match UKCA sizes
-size_bins = [5, 10, 100, 500] # edges of bins
+size_bins = [2.5, 15, 100, 500] # edges of bins
 n_size_bins = len(size_bins) - 1
 size_limit_inds = {}
 for f in atom_Dp:
     size_limit_inds[f] = []
     for n in size_bins:
-        loc = np.nonzero(atom_Dp[f] < n)[0][-1]
+        if n < atom_Dp[f][0]:
+            # if n is smaller than first bin
+            loc = 0
+        else:
+            loc = np.nonzero(atom_Dp[f] < n)[0][-1]
         # loc is index of largest diameter bin that's still less than n
         size_limit_inds[f].append(loc + 1)
 atom_N = {}
@@ -359,11 +366,11 @@ for i_aero_file, f in enumerate(atom_aero_T):
             z_bin_sample_size = np.array([len(x) for x in N_binned])
 
             for z in np.arange(n_z_bins):
-                N = ma.masked_where(np.array(N_binned[z]) < 0, N_binned[z])
-                N = ma.masked_invalid(N)
-                atom_N_mean[f][z,d] = ma.mean(N)
-                atom_N_median[f][z,d] = ma.median(N, axis=0)
-                atom_N_stddev[f][z,d] = ma.std(N, axis=0)
+                N_z = ma.masked_where(np.array(N_binned[z]) < 0, N_binned[z])
+                N_z = ma.masked_invalid(N_z)
+                atom_N_mean[f][z,d] = ma.mean(N_z)
+                atom_N_median[f][z,d] = ma.median(N_z, axis=0)
+                atom_N_stddev[f][z,d] = ma.std(N_z, axis=0)
 
 # now bin merged data
 atom_alts_all = np.array([atom_alts[i] for f in i_nav_for_aero for i in i_nav_for_aero[f][i_aero_high_lats[f]]])
@@ -427,16 +434,16 @@ for s,suite in enumerate(fprops.fig5_suites):
     number_conc_aug[suite] = {}
     radius_aug[suite] = {}
     for mode in number_conc[suite]:
-        N = number_conc_STP[suite][mode]
+        Naero = number_conc_STP[suite][mode]
         R = radius[suite][mode]
         try:
-            iris.coord_categorisation.add_month(N, 'time', name='month')
-            iris.coord_categorisation.add_year(N, 'time', name='year')
+            iris.coord_categorisation.add_month(Naero, 'time', name='month')
+            iris.coord_categorisation.add_year(Naero, 'time', name='year')
         except ValueError:
             pass
-        N = N.extract(iris.Constraint(month='Aug'))
-        N = N.extract(iris.Constraint(year=2018))
-        number_conc_aug[suite][mode] = N
+        Naero = Naero.extract(iris.Constraint(month='Aug'))
+        Naero = Naero.extract(iris.Constraint(year=2018))
+        number_conc_aug[suite][mode] = Naero
         try:
             iris.coord_categorisation.add_month(R, 'time', name='month')
             iris.coord_categorisation.add_year(R, 'time', name='year')
@@ -575,12 +582,12 @@ for s,suite in enumerate(fprops.fig5_suites):
     dist = np.zeros((model_n_bins, n_levels, n_coords))
     dist_area_mean = np.zeros((model_n_bins, n_levels))
     for m,mode in enumerate(number_conc[suite]):
-        N = n_conc_extracted_dict[suite][mode]
+        Naero = n_conc_extracted_dict[suite][mode]
         D = diams_extracted_dict[suite][mode]
         for z in np.arange(n_levels):
             for i in np.arange(n_coords):
                 pdf = aero.lognormal_pdf(np.log(D[i][z].data*1e09), np.log(constants.mode_sig[mode]), model_bins)
-                dist[:,z,i] += pdf * N[i][z].data
+                dist[:,z,i] += pdf * Naero[i][z].data
     for z in np.arange(n_levels):
         dist_area_mean[:,z] = np.mean(dist[:,z],axis=1)
 
@@ -591,57 +598,76 @@ for s,suite in enumerate(fprops.fig5_suites):
             atom_model_N[suite][d,z] = ma.sum(model_dlogD[i1:i2] * dist_area_mean[i1:i2,z])
 
 # ---------------------------------------------------------------------
+# LOAD MODEL DATA FOR FIGURE 7
+model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
+for suite in fprops.fig7_suites:
+    try:
+        a = np.any(N[suite])
+        if a and verbose:
+            print('\nAlready loaded {}'.format(suite))
+    except KeyError:
+        if verbose:
+            print('\nLoading output from {}..'.format(suite))
+        N[suite], bin_edges[suite], times[suite] = aero.get_ao2018_aerosol_conc(model_output_path, suite)
+
+if verbose:
+    print('\nMaking PDFs..')
+n_pdf_bins = 25
+hist_obs, hist_model, pdf_bins = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig7_suites, N, bin_edges, times, hist_model=hist_model, pdf_bins=pdf_bins)
+pdf_bins_mid = [0.5*(X[1:] + X[:-1]) for X in pdf_bins]
+
+# ---------------------------------------------------------------------
 # PLOTTING
 # ---------------------------------------------------------------------
 
-# # ---------------------------------------------------------------------
-# # FIGURE 1: map of ATom, ASCOS and AO2018 coordinates
-# if verbose:
-#     print('\nMaking figure 1..')
-# atom_path = '/home/users/eersp/atom_data/ATom_nav_1613/data/'
-# ascos_path = "/home/users/eersp/ascos_flights/data_files/"
-# fig1_filename = 'figures/fig01.pdf'
-# plot_obs_map(atom_path, ascos_path, fig1_filename)
-# if verbose:
-#     print('Done.')
+# ---------------------------------------------------------------------
+# FIGURE 1: map of ATom, ASCOS and AO2018 coordinates
+if verbose:
+    print('\nMaking figure 1..')
+atom_path = '/home/users/eersp/atom_data/ATom_nav_1613/data/'
+ascos_path = "/home/users/eersp/ascos_flights/data_files/"
+fig1_filename = 'figures/fig01.pdf'
+plot_obs_map(atom_path, ascos_path, fig1_filename)
+if verbose:
+    print('Done.')
 
-# # ---------------------------------------------------------------------
-# # FIGURE 2: time series of aerosol concentrations during AO2018
-# if verbose:
-#     print('\nMaking figure 2..')
+# ---------------------------------------------------------------------
+# FIGURE 2: time series of aerosol concentrations during AO2018
+if verbose:
+    print('\nMaking figure 2..')
 
-# obs_N = [ufp_running_means, dmps_N15_100_running_means, dmps_N100_500_running_means]
-# obs_T = [ufp_running_mean_times, dmps_running_mean_times, dmps_running_mean_times]
-# obs_stdev = [ufp_std_devs, dmps_N15_100_std_devs, dmps_N100_500_std_devs]
-# ts.plot_time_series_pdfs(fprops.fig2_suites, N, times, 
-#                          obs_N, obs_T, obs_stdev, 
-#                          hist_obs, hist_model, pdf_bins_mid,
-#                          'figures/fig02.pdf')
-# if verbose:
-#     print('Done.')
-# # ---------------------------------------------------------------------
-# # FIGURE 3: time series and PDF of surface HIO3 concentration during AO2018
-# # plot time series and PDF on same figure with subplots
-# if verbose:
-#     print('\nMaking figure 3..')
+obs_N = [ufp_running_means, dmps_N15_100_running_means, dmps_N100_500_running_means]
+obs_T = [ufp_running_mean_times, dmps_running_mean_times, dmps_running_mean_times]
+obs_stdev = [ufp_std_devs, dmps_N15_100_std_devs, dmps_N100_500_std_devs]
+ts.plot_time_series_pdfs(fprops.fig2_suites, N, times, 
+                         obs_N, obs_T, obs_stdev, 
+                         hist_obs, hist_model, pdf_bins_mid,
+                         'figures/fig02.pdf')
+if verbose:
+    print('Done.')
+# ---------------------------------------------------------------------
+# FIGURE 3: time series and PDF of surface HIO3 concentration during AO2018
+# plot time series and PDF on same figure with subplots
+if verbose:
+    print('\nMaking figure 3..')
 
-# ts.plot_IA_time_series_pdf(obs_hio3_means, obs_hio3_mean_times,
-#                            colocated_hio3_number, model_times,
-#                            hio3_hist_obs[1], hio3_pdf_bins_mid,
-#                            hio3_hist_model[1], hio3_pdf_bins_mid,
-#                            "figures/fig03")
-# if verbose:
-#     print('Done.')
+ts.plot_IA_time_series_pdf(obs_hio3_means, obs_hio3_mean_times,
+                           colocated_hio3_number, model_times,
+                           hio3_hist_obs[1], hio3_pdf_bins_mid,
+                           hio3_hist_model[1], hio3_pdf_bins_mid,
+                           "figures/fig03")
+if verbose:
+    print('Done.')
 
-# # ---------------------------------------------------------------------
-# # FIGURE 4: colocated aerosol height profiles for nucleation mode
-# if verbose:
-#     print('\nMaking figure 4..')
+# ---------------------------------------------------------------------
+# FIGURE 4: colocated aerosol height profiles for nucleation mode
+if verbose:
+    print('\nMaking figure 4..')
 
-# ts.time_series_3d(sol_nuc_N, zbl, fig4_times, fig4_heights, 'figures/fig04')
+ts.time_series_3d(sol_nuc_N, zbl, fig4_times, fig4_heights, 'figures/fig04')
 
-# if verbose:
-#     print('Done.')
+if verbose:
+    print('Done.')
 
 # ---------------------------------------------------------------------
 # FIGURE 5: ASCOS profiles
@@ -659,10 +685,10 @@ ax1.plot(ascos_N3_14_mean[:-1], z_bins[:-1]/1000, color='k',
 ax1.plot(ascos_N3_14_median[:-1], z_bins[:-1]/1000, color='k',
          linestyle='dashed', label='ASCOS median', zorder=2, linewidth=fprops.thick_line)
 for s,suite in enumerate(fprops.fig5_suites):
-    N = model_N[suite][0]
+    Naero = model_N[suite][0]
     colour = fprops.colours[suite]
     linewidth = fprops.linewidths[suite]
-    ax1.plot(N, heights, label=fprops.suite_labels[suite],
+    ax1.plot(Naero, heights, label=fprops.suite_labels[suite],
              zorder=4, color=colour, linewidth=linewidth)
 
 ax1.grid()
@@ -691,10 +717,10 @@ ax2.plot(ascos_N14_300_mean[:-1], z_bins[:-1]/1000, color='k',
 ax2.plot(ascos_N14_300_median[:-1], z_bins[:-1]/1000, color='k',
          linestyle='dashed', label='ASCOS median', zorder=2, linewidth=fprops.thick_line)
 for s,suite in enumerate(fprops.fig5_suites):
-    N = model_N[suite][1]
+    Naero = model_N[suite][1]
     colour = fprops.colours[suite]
     linewidth = fprops.linewidths[suite]
-    ax2.plot(N, heights, label=fprops.suite_labels[suite],
+    ax2.plot(Naero, heights, label=fprops.suite_labels[suite],
              zorder=4, color=colour,
              linewidth=linewidth)
 ax2.grid()
@@ -733,9 +759,9 @@ for d in np.arange(n_size_bins):
     ax.plot(atom_N_all_mean[:,d], z_bins_merged/1000, color='k', label='ATom mean', linewidth=fprops.thick_line)
     ax.plot(atom_N_all_median[:,d], z_bins_merged/1000, color='k', linestyle='dashed', label='ATom median', linewidth=fprops.thick_line)
     for s,suite in enumerate(fprops.fig5_suites):
-        N = atom_model_N[suite][d]
+        Naero = atom_model_N[suite][d]
         z = atom_model_z[suite]
-        ax.plot(N, z, label=fprops.suite_labels[suite],
+        ax.plot(Naero, z, label=fprops.suite_labels[suite],
                 zorder=4, color=fprops.colours[suite],
                 linewidth=fprops.linewidths[suite])
     ax.grid()
@@ -759,6 +785,20 @@ plt.savefig(filename, bbox_inches="tight", facecolor='white', format='pdf')
 plt.close()
 if verbose:
     print('Done')
+# ---------------------------------------------------------------------
+# FIGURE 7: time series of aerosol concentrations during AO2018
+if verbose:
+    print('\nMaking figure 7..')
+
+obs_N = [ufp_running_means, dmps_N15_100_running_means, dmps_N100_500_running_means]
+obs_T = [ufp_running_mean_times, dmps_running_mean_times, dmps_running_mean_times]
+obs_stdev = [ufp_std_devs, dmps_N15_100_std_devs, dmps_N100_500_std_devs]
+ts.plot_time_series_pdfs(fprops.fig7_suites, N, times, 
+                         obs_N, obs_T, obs_stdev, 
+                         hist_obs, hist_model, pdf_bins_mid,
+                         'figures/fig07.pdf', alpha_pale=0.6)
+if verbose:
+    print('Done.')
 
 # =====================================================================
 end = dt.datetime.now()

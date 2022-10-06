@@ -90,14 +90,14 @@ def total_number_from_dN(dNdlogD, bins, target_bins, base='e'):
         else:
             loc = np.nonzero(bins < n)[0][-1]
             # loc is index of largest diameter bin that's still less than n
-            target_inds.append(loc + 1)
+#             target_inds.append(loc + 1)
+            target_inds.append(loc)
 #     N = np.zeros((n_time, n_target_bins))
 #     for t in np.arange(n_time):
 #         for d,D in enumerate(target_inds[:-1]):
 #             dN = ma.sum(dlogD[D:target_inds[d+1]] * dNdlogD[t,D:target_inds[d+1]])
 #             N[t,d] += dN
 #     return N
-
     N = ma.zeros((n_time, n_target_bins))
     for d,D in enumerate(target_inds[:-1]):
         N[:,d] = np.trapz(dNdlogD[:,D:target_inds[d+1]], x=logD[D:target_inds[d+1]], axis=1)
@@ -331,55 +331,55 @@ def get_mode_radius(model_output_path, suite, number_conc=None, mass_conc=None, 
     Function loads saved radius files if they exist
     calculates radius from number and mass if not
     '''
-    calculate_modes = []
-    radius_folder = 'data/processed/'
-    radius_files = []
-    # check which modes have been saved
-    for mode in constants.modes:
-        file = glob('{}*{}*radius*{}*'.format(radius_folder, suite, '_'+mode))
-        if len(file) == 1:
-            if time_res == '3hr':
-                radius_files.append(file[0])
-            else:
-                calculate_modes.append(mode)
-        else:
-            calculate_modes.append(mode)
+#     calculate_modes = []
+#     radius_folder = 'data/processed/'
+#     radius_files = []
+#     # check which modes have been saved
+#     for mode in constants.modes:
+#         file = glob('{}*{}*radius*{}*'.format(radius_folder, suite, '_'+mode))
+#         if len(file) == 1:
+#             if time_res == '3hr':
+#                 radius_files.append(file[0])
+#             else:
+#                 calculate_modes.append(mode)
+#         else:
+#             calculate_modes.append(mode)
 
-    if calculate_modes:
-        # if some modes need calculating
-        # calculate..
-        if number_conc==None:
-            if time_res=='3hr':
-                number_conc = load_3hr_surface_aerosol_number_conc(model_output_path, suite)
-            elif time_res=='monthly':
-                number_conc = load_monthly_mean_aerosol_number_conc(model_output_path, suite)
-            else:
-                print('[get_mode_radius] ERROR: what time resolution number concentration did you want?')
-                sys.exit() # bit dramatic but probably safest
-        if mass_conc==None:
-            if time_res=='3hr':
-                mass_conc = load_3hr_surface_aerosol_mass_conc(model_output_path, suite)
-            elif time_res=='monthly':
-                mass_conc = load_monthly_mean_aerosol_mass_conc(model_output_path, suite)
-            else:
-                print('[get_mode_radius] ERROR: what time resolution mass concentration did you want?')
-                sys.exit() # bit dramatic but probably safest
-        radius = radius_from_number_and_mass_conc(number_conc, mass_conc)
-        # ..then save
-        saving_folder = 'data/processed/'
-        for mode in radius:
-            cube = radius[mode]
-            save_name = 'L1_{}_{}.nc'.format(suite, cube.long_name)
-            save_name = re.sub("\s+", "_", save_name)    
-            save_cube(cube, saving_folder, save_name)
-    else:
-        # can all be loaded
-        radius = {}
-        for m,mode in enumerate(constants.modes):
-            radius[mode] = iris.load(radius_files[m])[0]
-            if radius[mode].shape[1] == 2:
-                radius[mode] = radius[mode][:,0]
-            radius[mode].data
+#     if calculate_modes:
+#         # if some modes need calculating
+#         # calculate..
+    if number_conc==None:
+        if time_res=='3hr':
+            number_conc = load_3hr_surface_aerosol_number_conc(model_output_path, suite)
+        elif time_res=='monthly':
+            number_conc = load_monthly_mean_aerosol_number_conc(model_output_path, suite)
+        else:
+            print('[get_mode_radius] ERROR: what time resolution number concentration did you want?')
+            sys.exit() # bit dramatic but probably safest
+    if mass_conc==None:
+        if time_res=='3hr':
+            mass_conc = load_3hr_surface_aerosol_mass_conc(model_output_path, suite)
+        elif time_res=='monthly':
+            mass_conc = load_monthly_mean_aerosol_mass_conc(model_output_path, suite)
+        else:
+            print('[get_mode_radius] ERROR: what time resolution mass concentration did you want?')
+            sys.exit() # bit dramatic but probably safest
+    radius = radius_from_number_and_mass_conc(number_conc, mass_conc)
+#     # ..then save
+#     saving_folder = 'data/processed/'
+#     for mode in radius:
+#         cube = radius[mode]
+#         save_name = 'L1_{}_{}.nc'.format(suite, cube.long_name)
+#         save_name = re.sub("\s+", "_", save_name)    
+#         save_cube(cube, saving_folder, save_name)
+# else:
+#         # can all be loaded
+#         radius = {}
+#         for m,mode in enumerate(constants.modes):
+#             radius[mode] = iris.load(radius_files[m])[0]
+#             if radius[mode].shape[1] == 2:
+#                 radius[mode] = radius[mode][:,0]
+#             radius[mode].data
     return radius
 
 def save_ao2018_aerosol_conc(suite, N, bin_edges, times):
@@ -443,7 +443,7 @@ def calculate_ao2018_aerosol_conc(model_output_path, suite):
     dNdlogD = integrate_modes(colocated_number_conc, colocated_radius, bins)
     N_limits = [2.5e-9, 15e-9, 100e-9, 500e-9]  # nm
     N = total_number_from_dN(dNdlogD, bins, N_limits)
-    save_ao2018_aerosol_conc(suite, N, N_limits, times)
+#     save_ao2018_aerosol_conc(suite, N, N_limits, times)
     return N, N_limits, times
 
 def load_ao2018_aerosol_conc(suite):
@@ -536,7 +536,8 @@ def running_mean(X, times, n_hours, spacing):
     return running_means, std_devs, running_mean_times
 
 def ao2018_melt_freeze_pdfs(n_pdf_bins, suites, N, Dp_bin_edges, times,
-                            obs=None, freeze_up=dt.datetime(2018,8,27)):
+                            obs=None, freeze_up=dt.datetime(2018,8,27),
+                            hist_model={}, pdf_bins=[]):
     '''
     Creates PDFs of observations and model output (for suites)
     of aerosol concentrations in 3 sizes during AO2018
@@ -587,7 +588,8 @@ def ao2018_melt_freeze_pdfs(n_pdf_bins, suites, N, Dp_bin_edges, times,
     max_N = [np.amax(X) for X in obs_data_all]
     max_N_log = np.log10(max_N) 
     # define bins
-    pdf_bins = [np.logspace(-4, N, n_pdf_bins+1) for N in max_N_log]
+    if not np.any(pdf_bins):
+        pdf_bins = [np.logspace(-4, N, n_pdf_bins+1) for N in max_N_log]
     pdf_bins_mid = [0.5*(X[1:] + X[:-1]) for X in pdf_bins]
 
     # Observations
@@ -596,13 +598,12 @@ def ao2018_melt_freeze_pdfs(n_pdf_bins, suites, N, Dp_bin_edges, times,
         hist_obs[n,0] = np.histogram(obs_data_melt[n], density=True, bins=pdf_bins[n])[0]
         hist_obs[n,1] = np.histogram(obs_data_freeze[n], density=True, bins=pdf_bins[n])[0]
     # Model
-    hist_model = {}
     for s,suite in enumerate(suites):
         hist_model[suite] = np.zeros((n_Dp_bins, 2, n_pdf_bins))
         for n in np.arange(n_Dp_bins):
             hist_model[suite][n,0] = np.histogram(model_melt[suite][:,n], density=True, bins=pdf_bins[n])[0]
             hist_model[suite][n,1] = np.histogram(model_freeze[suite][:,n], density=True, bins=pdf_bins[n])[0]
-    return hist_obs, hist_model, pdf_bins_mid
+    return hist_obs, hist_model, pdf_bins
 
 def load_ascos_data(ascos_obs_dir):
     '''

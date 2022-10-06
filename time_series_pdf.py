@@ -14,8 +14,12 @@ import string
 from matplotlib.ticker import FuncFormatter
 # =====================================================================
 def plot_time_series_pdfs(suites, model_N, model_T, obs_N, obs_T, obs_stdev,
-                          hist_obs, hist_model, pdf_bins_mid, filename):
-    sizes = ['2.5--15 nm', '15--100 nm', '100--500 nm']
+                          hist_obs, hist_model, pdf_bins_mid, filename,
+                          alpha_pale=1):
+    alpha_dark = 1
+    dark_suite = 'u-cp166'
+
+    sizes = ["2.5\u201315 nm","15\u2013100 nm","100\u2013500 nm"]
     n_Dp_bins = len(sizes)
     fig = plt.figure(figsize=(16*fprops.cm,14*fprops.cm), dpi=fprops.dpi)
     widths = [2, 1]
@@ -39,8 +43,12 @@ def plot_time_series_pdfs(suites, model_N, model_T, obs_N, obs_T, obs_stdev,
             colour = fprops.colours[suite]
             linewidth = fprops.linewidths[suite]
             label = fprops.suite_labels[suite]
-            ax1.plot(model_T[suite], model_N[suite][:,i],
-                     color=colour, linewidth=linewidth)
+            if suite == dark_suite:
+                ax1.plot(model_T[suite], model_N[suite][:,i],
+                         color=colour, linewidth=linewidth, alpha=alpha_dark)
+            else:
+                ax1.plot(model_T[suite], model_N[suite][:,i],
+                         color=colour, linewidth=linewidth, alpha=alpha_pale)
             legend_lines.append(mlines.Line2D([],[], color=colour, label=label, linewidth=linewidth))
         # mark NPF events
         for j,event in enumerate(fprops.ao2018_npf_events):
@@ -59,6 +67,7 @@ def plot_time_series_pdfs(suites, model_N, model_T, obs_N, obs_T, obs_stdev,
                            fontsize=fprops.ax_label_fs, labelpad=3)
         if i == 2:
             ax1.set_xlabel('Day of year', fontsize=fprops.ax_label_fs)
+            ax1.set_ylim(top=1e3)
         left_lim_date = dt.datetime(2018, 8, 2)
         right_lim_date = dt.datetime(2018, 9, 20)
         ax1.set_xlim(left=left_lim_date, right=right_lim_date)
