@@ -26,11 +26,6 @@ def plot_obs_map(atom_path, ascos_path, fig_filename):
 
     # Load ASCOS track
     ascos_flight_lons, ascos_flight_lats = cr.get_ascos_track(ascos_path)
-    ascos_lons = []
-    ascos_lats = []
-    for i in np.arange(len(ascos_flight_lons)):
-        ascos_lons.extend(ascos_flight_lons[i])
-        ascos_lats.extend(ascos_flight_lats[i])
 
     # Make plot
     # plot on map
@@ -50,13 +45,18 @@ def plot_obs_map(atom_path, ascos_path, fig_filename):
 
     plt.plot(ao2018_lons, ao2018_lats, color=cmap(0),
              transform=ccrs.PlateCarree(), label='AO2018 ship',
-             linestyle='None', marker='o', ms=1)
+             linewidth=1)
     plt.plot(atom1_lons, atom1_lats, color=cmap(1),
              transform=ccrs.PlateCarree(), label='ATom 1 flights',
-             linestyle='None', marker='o', ms=1)
-    plt.plot(ascos_lons, ascos_lats, color=cmap(4),
-             transform=ccrs.PlateCarree(), label='ASCOS helicopter flights',
-             linestyle='None', marker='o', ms=1)
+             linewidth=1)
+    for i in np.arange(len(ascos_flight_lons)):
+        if i == 0:
+            plt.plot(ascos_flight_lons[i], ascos_flight_lats[i], color=cmap(4),
+                     transform=ccrs.PlateCarree(), label='ASCOS helicopter flights',
+                     linewidth=1)
+        else:
+            plt.plot(ascos_flight_lons[i], ascos_flight_lats[i], color=cmap(4),
+                     transform=ccrs.PlateCarree(), linewidth=1)
 
     plt.legend(fontsize=6,facecolor='white',framealpha=1)
     plt.savefig(fig_filename, bbox_inches='tight', facecolor='white', format='pdf')
