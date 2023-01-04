@@ -7,12 +7,12 @@ dpi = 300      # dots per sq. inch
 cm = 1/2.54    # converts inches to cm for setting figure sizes
 
 # UM suite codes of the simulations plotted in fig.2
-fig2_suites = [
+fig3_suites = [
     'u-ci572',
-    'u-ch103',
+    # 'u-ch103',
     'u-ch625',
     'u-cm612',
-    'u-cm614'
+    # 'u-cm614'
 ]
 
 fig4_suites = [
@@ -23,16 +23,16 @@ fig4_suites = [
 
 fig5_suites = [
     'u-ci572',
-    'u-ch621',
-    'u-ch627',
+    'u-ch625',
+    # 'u-ch627',
     'u-ci364'
 ]
 
 fig7_suites = [
     'u-ci572',
-    'u-ch621',
+    'u-ch625',
     'u-ci364',
-    'u-ci384',
+    # 'u-ci384',
     'u-cp166'
 ]
 
@@ -42,31 +42,31 @@ suite_labels = {
     'u-ci515': 'UKESM_DEFAULT',
     'u-ci572': 'CONTROL',
     # K06_BL
-    'u-cf509': 'K06_BL_DEFAULT',
-    'u-ch103': 'K06_BL',
+    'u-cf509': 'SA_BL_DEFAULT',
+    'u-ch103': 'SA_BL',
     # IA_BL(_SecOrg)
     'u-cm611': 'IA_BL_DEFAULT',
     'u-cm612': 'IA_BL',
-    'u-cm614': 'IA_BL_SECORG',
+    'u-cm614': 'IA_BL_OXID',
     # M10_ALL
-    'u-ce705': 'M10_ALL_DEFAULT',
-    'u-ch621': 'M10_ALL',
-    'u-ch627': 'M10_ALL_SECORG',
+    'u-ce705': 'SOA_DEFAULT',
+    'u-ch621': 'SOA',
+    'u-ch627': 'SOA_OXID',
     # M10_BL
-    'u-ce703': 'M10_BL_DEFAULT',
-    'u-ch625': 'M10_BL',
+    'u-ce703': 'SOA_BL_DEFAULT',
+    'u-ch625': 'SOA_BL',
     # M10_FT
-    'u-ch785': 'M10_FT',
+    'u-ch785': 'SOA_FT',
     # M10_Prsc(_SecOrg)
-    'u-cg237': 'M10_PRSC_DEFAULT',
-    'u-ci364': 'M10_PRSC',
-    'u-ci384': 'M10_PRSC_SECORG',
+    'u-cg237': 'SOA_PRSC_DEFAULT',
+    'u-ci364': 'SOA_PRSC',
+    'u-ci384': 'SOA_PRSC_OXID',
     # IA_BL_M10
-    'u-cp166': 'IA_BL_M10_ALL',
+    'u-cp166': 'IA_BL_SOA',
     # M10_BL_70N, 80N, 85N
-    'u-cj701': 'M10_BL_75N',
-    'u-cj702': 'M10_BL_80N',
-    'u-cj340': 'M10_BL_85N',
+    'u-cj701': 'SOA_BL_75N',
+    'u-cj702': 'SOA_BL_80N',
+    'u-cj340': 'SOA_BL_85N',
 }
 # Line colours of simulations
 colours = {
