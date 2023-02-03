@@ -99,7 +99,7 @@ dmps_N100_500_running_means, dmps_N100_500_std_devs, dmps_running_mean_times = a
 if verbose:
     print('\nMaking PDFs..')
 n_pdf_bins = 25
-hist_obs, hist_model, pdf_bins = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig2_suites, N, bin_edges, times)
+hist_obs, hist_model, pdf_bins = aero.ao2018_melt_freeze_pdfs(n_pdf_bins, fprops.fig3_suites, N, bin_edges, times)
 pdf_bins_mid = [0.5*(X[1:] + X[:-1]) for X in pdf_bins]
 
 # ---------------------------------------------------------------------
@@ -599,6 +599,8 @@ for s,suite in enumerate(fprops.fig5_suites):
 
 # ---------------------------------------------------------------------
 # LOAD MODEL DATA FOR FIGURE 7
+if verbose:
+    print('\nLoading model output for fig 7...')
 model_output_path = '/gws/nopw/j04/asci/rprice/ukca_output/'
 for suite in fprops.fig7_suites:
     try:
@@ -635,7 +637,7 @@ if verbose:
 # FIGURE 2: time series and PDF of surface HIO3 concentration during AO2018
 # plot time series and PDF on same figure with subplots
 if verbose:
-    print('\nMaking figure 3..')
+    print('\nMaking figure 2..')
 
 ts.plot_IA_time_series_pdf(obs_hio3_means, obs_hio3_mean_times,
                            colocated_hio3_number, model_times,
@@ -648,7 +650,7 @@ if verbose:
 # ---------------------------------------------------------------------
 # FIGURE 3: time series of aerosol concentrations during AO2018
 if verbose:
-    print('\nMaking figure 2..')
+    print('\nMaking figure 3..')
 
 obs_N = [ufp_running_means, dmps_N15_100_running_means, dmps_N100_500_running_means]
 obs_T = [ufp_running_mean_times, dmps_running_mean_times, dmps_running_mean_times]

@@ -30,7 +30,7 @@ fig5_suites = [
 
 fig7_suites = [
     'u-ci572',
-    'u-ch625',
+    # 'u-ch625',
     'u-ci364',
     # 'u-ci384',
     'u-cp166'
@@ -42,31 +42,33 @@ suite_labels = {
     'u-ci515': 'UKESM_DEFAULT',
     'u-ci572': 'CONTROL',
     # K06_BL
-    'u-cf509': 'SA_BL_DEFAULT',
-    'u-ch103': 'SA_BL',
+    'u-cf509': 'SA_DEFAULT',
+    'u-ch103': 'SA',
     # IA_BL(_SecOrg)
-    'u-cm611': 'IA_BL_DEFAULT',
-    'u-cm612': 'IA_BL',
-    'u-cm614': 'IA_BL_OXID',
+    'u-cm611': 'IA_DEFAULT',
+    'u-cm612': 'IA',
+    'u-cm614': 'IA_OXID',
     # M10_ALL
-    'u-ce705': 'SOA_DEFAULT',
-    'u-ch621': 'SOA',
-    'u-ch627': 'SOA_OXID',
+    'u-ce705': 'SOA_ALL_LEVELS_DEFAULT',
+    'u-ch621': 'SOA_ALL_LEVELS',
+    'u-ch627': 'SOA_ALL_LEVELS_OXID',
     # M10_BL
-    'u-ce703': 'SOA_BL_DEFAULT',
-    'u-ch625': 'SOA_BL',
-    # M10_FT
-    'u-ch785': 'SOA_FT',
+    'u-ce703': 'SOA_DEFAULT',
+    'u-ch625': 'SOA',
+    'u-ch628': 'SOA_OXID',
+    # # M10_FT
+    # 'u-ch785': 'SOA_FT',
     # M10_Prsc(_SecOrg)
     'u-cg237': 'SOA_PRSC_DEFAULT',
     'u-ci364': 'SOA_PRSC',
     'u-ci384': 'SOA_PRSC_OXID',
+    'u-cj948': 'SOA_PRSC_60N',
     # IA_BL_M10
-    'u-cp166': 'IA_BL_SOA',
+    'u-cp166': 'IA_SOA',
     # M10_BL_70N, 80N, 85N
-    'u-cj701': 'SOA_BL_75N',
-    'u-cj702': 'SOA_BL_80N',
-    'u-cj340': 'SOA_BL_85N',
+    'u-cj701': 'SOA_75N',
+    'u-cj702': 'SOA_80N',
+    'u-cj340': 'SOA_85N',
 }
 # Line colours of simulations
 colours = {
@@ -87,14 +89,16 @@ colours = {
     # M10_BL
     'u-ce703': '#0173B2',
     'u-ch625': '#0173B2',
+    'u-ch628': '#0173B2',
     # M10_FT
     'u-ch785': '#CA9161',
     # M10_Prsc(_SecOrg)
     'u-ci364': '#029E73',
     'u-ci384': '#029E73',
     'u-cg237': '#029E73',
+    'u-cj948': '#029E73',
     # IA_BL_M10
-    'u-cp166': 'crimson',
+    'u-cp166': 'mediumvioletred',
     # M10_BL_70N, 80N, 85N
     'u-cj701': 'darkblue',
     'u-cj702': 'blue',
@@ -122,12 +126,14 @@ linewidths = {
     # M10_BL
     'u-ce703': thin_line,
     'u-ch625': thick_line,
+    'u-ch628': thin_line,
     # Metzger FT
     'u-ch785': thick_line,
     # M10_Prsc
     'u-ci364': thick_line,
     'u-ci384': thin_line,
     'u-cg237': thin_line,
+    'u-cj948': thin_line,
     # IA_BL_M10
     'u-cp166': thick_line,
     # M10_BL_70N, 80N, 85N

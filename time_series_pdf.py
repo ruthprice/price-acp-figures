@@ -68,16 +68,29 @@ def plot_time_series_pdfs(suites, model_N, model_T, obs_N, obs_T, obs_stdev,
         if i == 2:
             ax1.set_xlabel('Day of year', fontsize=fprops.ax_label_fs)
             ax1.set_ylim(top=1e3)
-        left_lim_date = dt.datetime(2018, 8, 2)
-        right_lim_date = dt.datetime(2018, 9, 20)
+        # use DOY on x axis
+        left_lim_date = dt.datetime(2018, 8, 1)
+        right_lim_date = dt.datetime(2018, 9, 19)
         ax1.set_xlim(left=left_lim_date, right=right_lim_date)
-        ax1.tick_params(axis='x', labelsize=fprops.ax_fs)
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
+        left,right = plt.xlim()
+        doy_left = left_lim_date.timetuple().tm_yday
+        doy_right = right_lim_date.timetuple().tm_yday
+        x_axis_array = np.arange(left,right+1)
+        doy_array = np.arange(doy_left, doy_right+1)
+        ax1.set_xticks(x_axis_array[::3])
+        ax1.set_xticklabels(doy_array[::3])
+        ax1.tick_params(axis='x', which='major', labelsize=fprops.ax_fs)
+        ax1.tick_params(axis='x', which='minor', labelsize=fprops.ax_fs)
+        #ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
         # make pretty legend
         if i == 0:
+            if len(suites) <= 3:
+                n_leg_cols = len(suites)+1
+            else:
+                n_leg_cols = int(np.ceil((len(suites)+1)/2))
             ax1.legend(handles=legend_lines, fontsize=fprops.legend_fs,
                        loc='lower center', bbox_to_anchor=(0.5,0),
-                       ncol=3, columnspacing=1, borderpad=0.2,
+                       ncol=n_leg_cols, columnspacing=1, borderpad=0.2,
                        handletextpad=0.3, labelspacing=0.5,
                        handlelength=1.5)
         # make plot titles
@@ -166,6 +179,7 @@ def plot_IA_time_series_pdf(obs_IA, obs_T, model_IA, model_T,
     ax1.tick_params(axis='x', which='minor', labelsize=fprops.ax_fs)
     ax1.legend(fontsize=fprops.legend_fs)
     ax1.set_title('(a)', loc='left', fontsize=fprops.label_fs, y=1.1)
+    ax1.yaxis.get_offset_text().set_fontsize(fprops.ax_fs)
     # PDFs
     ax2 = fig.add_subplot(spec[1])
     ax2.plot(obs_bins, obs_hist, color='k',
@@ -179,6 +193,8 @@ def plot_IA_time_series_pdf(obs_IA, obs_T, model_IA, model_T,
     ax2.tick_params(axis='y', which='major', pad=1)
     ax2.set_title('Freeze season', loc='right', fontsize=fprops.label_fs, y=1.1)
     ax2.set_title('(b)', loc='left', fontsize=fprops.label_fs, y=1.1)
+    ax2.xaxis.get_offset_text().set_fontsize(fprops.ax_fs)
+    ax2.yaxis.get_offset_text().set_fontsize(fprops.ax_fs)
     ax1.grid()
     ax2.grid()
     plt.savefig(filename+".pdf", bbox_inches='tight', facecolor='white', format='pdf')
